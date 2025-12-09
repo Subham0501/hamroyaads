@@ -85,7 +85,7 @@ if ($templateId) {
                             <span class="absolute inset-0 rounded-lg bg-gradient-to-r from-theme-color to-theme-color-dark opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                         </a>
                         <!-- Theme Toggle Button in Navigation -->
-                        <button id="theme-toggle-nav" type="button" class="ml-3 p-2.5 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 hover:scale-110 group" aria-label="Toggle dark mode">
+                        <button id="theme-toggle-nav" type="button" onclick="if(window.toggleTheme) window.toggleTheme(event);" class="ml-3 p-2.5 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 hover:scale-110 group" aria-label="Toggle dark mode">
                             <svg id="moon-icon-nav" class="w-5 h-5 dark:hidden transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
                             </svg>
@@ -397,7 +397,7 @@ if ($templateId) {
                             <span class="absolute inset-0 rounded-lg bg-gradient-to-r from-theme-color to-theme-color-dark opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                         </a>
                         <!-- Theme Toggle Button in Navigation -->
-                        <button id="theme-toggle-nav" type="button" class="ml-3 p-2.5 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 hover:scale-110 group" aria-label="Toggle dark mode">
+                        <button id="theme-toggle-nav" type="button" onclick="if(window.toggleTheme) window.toggleTheme(event);" class="ml-3 p-2.5 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 hover:scale-110 group" aria-label="Toggle dark mode">
                             <svg id="moon-icon-nav" class="w-5 h-5 dark:hidden transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
                             </svg>
@@ -406,6 +406,32 @@ if ($templateId) {
                             </svg>
                         </button>
                     </div>
+                    <!-- Mobile Menu Button -->
+                    <button id="mobile-menu-toggle" type="button" onclick="toggleMobileMenu(this)" class="md:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#334155] transition-colors" aria-label="Toggle mobile menu">
+                        <svg id="menu-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="hidden md:hidden fixed top-20 left-0 right-0 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-xl border-b border-gray-200/60 dark:border-[#1e293b]/60 shadow-lg z-40">
+                <div class="px-6 py-4 space-y-3">
+                    <a href="#home" class="block px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:text-white dark:hover:text-white font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-theme-color hover:to-theme-color-dark" onclick="toggleMobileMenu()">Home</a>
+                    <a href="#story" class="block px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:text-white dark:hover:text-white font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-theme-color hover:to-theme-color-dark" onclick="toggleMobileMenu()">Our Story</a>
+                    <a href="#memories" class="block px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:text-white dark:hover:text-white font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-theme-color hover:to-theme-color-dark" onclick="toggleMobileMenu()">Memories</a>
+                    <button id="theme-toggle-mobile" type="button" onclick="if(window.toggleTheme) window.toggleTheme(event);" class="w-full text-left px-4 py-3 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 flex items-center gap-3">
+                        <svg id="moon-icon-mobile" class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg id="sun-icon-mobile" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span>Toggle Theme</span>
+                    </button>
                 </div>
             </div>
         </nav>
@@ -713,7 +739,7 @@ if ($templateId) {
                             <span class="absolute inset-0 rounded-lg bg-gradient-to-r from-theme-color to-theme-color-dark opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                         </a>
                         <!-- Theme Toggle Button in Navigation -->
-                        <button id="theme-toggle-nav" type="button" class="ml-3 p-2.5 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 hover:scale-110 group" aria-label="Toggle dark mode">
+                        <button id="theme-toggle-nav" type="button" onclick="if(window.toggleTheme) window.toggleTheme(event);" class="ml-3 p-2.5 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 hover:scale-110 group" aria-label="Toggle dark mode">
                             <svg id="moon-icon-nav" class="w-5 h-5 dark:hidden transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
                             </svg>
@@ -722,6 +748,32 @@ if ($templateId) {
                             </svg>
                         </button>
                     </div>
+                    <!-- Mobile Menu Button -->
+                    <button id="mobile-menu-toggle" type="button" onclick="toggleMobileMenu(this)" class="md:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#334155] transition-colors" aria-label="Toggle mobile menu">
+                        <svg id="menu-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="hidden md:hidden fixed top-20 left-0 right-0 bg-white/90 dark:bg-[#1e293b]/90 backdrop-blur-xl border-b border-gray-200/60 dark:border-[#334155]/60 shadow-lg z-40">
+                <div class="px-6 py-4 space-y-3">
+                    <a href="#home" class="block px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:text-white dark:hover:text-white font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-theme-color hover:to-theme-color-dark" onclick="toggleMobileMenu()">Home</a>
+                    <a href="#story" class="block px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:text-white dark:hover:text-white font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-theme-color hover:to-theme-color-dark" onclick="toggleMobileMenu()">Our Story</a>
+                    <a href="#memories" class="block px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:text-white dark:hover:text-white font-medium transition-all duration-300 hover:bg-gradient-to-r hover:from-theme-color hover:to-theme-color-dark" onclick="toggleMobileMenu()">Memories</a>
+                    <button id="theme-toggle-mobile" type="button" onclick="if(window.toggleTheme) window.toggleTheme(event);" class="w-full text-left px-4 py-3 rounded-lg bg-gray-100 dark:bg-[#334155] text-gray-700 dark:text-[#cbd5e1] hover:bg-gray-200 dark:hover:bg-[#475569] transition-all duration-300 flex items-center gap-3">
+                        <svg id="moon-icon-mobile" class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg id="sun-icon-mobile" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span>Toggle Theme</span>
+                    </button>
                 </div>
             </div>
         </nav>

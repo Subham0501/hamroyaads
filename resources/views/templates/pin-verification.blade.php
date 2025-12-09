@@ -121,7 +121,7 @@
 
 <div class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-50 dark:from-[#0f172a] dark:via-[#1a1f2e] dark:to-[#181d29] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
     <!-- Theme Toggle Button -->
-    <button id="theme-toggle" type="button" class="fixed top-6 right-6 z-50 p-3 rounded-xl bg-white/80 dark:bg-[#1e293b]/80 backdrop-blur-lg text-gray-700 dark:text-[#cbd5e1] hover:bg-white dark:hover:bg-[#1e293b] border border-gray-200/50 dark:border-[#334155]/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group animate-fade-in cursor-pointer" style="animation-delay: 0.1s;" aria-label="Toggle dark mode">
+    <button id="theme-toggle" type="button" onclick="if(window.toggleTheme) window.toggleTheme(event);" class="fixed top-6 right-6 z-50 p-3 rounded-xl bg-white/80 dark:bg-[#1e293b]/80 backdrop-blur-lg text-gray-700 dark:text-[#cbd5e1] hover:bg-white dark:hover:bg-[#1e293b] border border-gray-200/50 dark:border-[#334155]/50 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group animate-fade-in cursor-pointer" style="animation-delay: 0.1s;" aria-label="Toggle dark mode">
         <svg id="moon-icon" class="w-6 h-6 dark:hidden transition-transform group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
         </svg>

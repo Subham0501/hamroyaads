@@ -64,6 +64,7 @@
             'use strict';
             
             const html = document.documentElement;
+            let themeToggleInitialized = false;
             
             // Theme toggle function
             function toggleTheme(e) {
@@ -91,53 +92,104 @@
             // Make it globally accessible
             window.toggleTheme = toggleTheme;
             
-            // Set up all toggle buttons
+            // Event handler for theme toggle buttons using event delegation
+            function handleThemeToggle(e) {
+                const target = e.target.closest('#theme-toggle, #theme-toggle-nav');
+                if (target) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleTheme(e);
+                }
+            }
+            
+            // Set up event delegation once
             function setupThemeToggles() {
-                const buttons = document.querySelectorAll('#theme-toggle, #theme-toggle-nav');
-                
-                buttons.forEach(function(button) {
-                    // Remove old listeners by cloning
-                    if (!button.dataset.setup) {
-                        const newButton = button.cloneNode(true);
-                        newButton.dataset.setup = 'true';
-                        button.parentNode.replaceChild(newButton, button);
-                        
-                        // Add event listeners
-                        newButton.addEventListener('click', toggleTheme, false);
-                        newButton.addEventListener('mousedown', function(e) {
-                            e.preventDefault();
-                            toggleTheme(e);
-                        }, false);
-                        
-                        console.log('Theme toggle button set up:', newButton.id);
-                    }
-                });
+                if (!themeToggleInitialized) {
+                    document.addEventListener('click', handleThemeToggle, true);
+                    themeToggleInitialized = true;
+                    console.log('Theme toggle event delegation set up');
+                }
             }
             
             // Run setup when DOM is ready
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', function() {
                     setupThemeToggles();
-                    // Retry after a delay to catch any dynamically added buttons
-                    setTimeout(setupThemeToggles, 300);
                 });
             } else {
                 setupThemeToggles();
-                setTimeout(setupThemeToggles, 300);
-            }
-            
-            // Watch for new buttons added dynamically
-            if (typeof MutationObserver !== 'undefined' && document.body) {
-                const observer = new MutationObserver(function() {
-                    setupThemeToggles();
-                });
-                
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
             }
         })();
+        
+    
+        function toggleMobileMenu(button) {
+            // Get the button element (passed from onclick or find it)
+            const clickedButton = button || (event ? event.target.closest('#mobile-menu-toggle') : document.querySelector('#mobile-menu-toggle'));
+            
+            if (!clickedButton) return;
+            
+            // Find the menu associated with this button (should be in the same nav)
+            const nav = clickedButton.closest('nav');
+            const menu = nav ? nav.querySelector('#mobile-menu') : document.querySelector('#mobile-menu');
+            const menuIcon = clickedButton.querySelector('#menu-icon');
+            const closeIcon = clickedButton.querySelector('#close-icon');
+            
+            if (menu && menuIcon && closeIcon) {
+                const isHidden = menu.classList.contains('hidden');
+                
+                // Close all other menus first
+                document.querySelectorAll('#mobile-menu').forEach(m => {
+                    if (m !== menu) {
+                        m.classList.add('hidden');
+                    }
+                });
+                document.querySelectorAll('#mobile-menu-toggle').forEach(btn => {
+                    if (btn !== clickedButton) {
+                        const mi = btn.querySelector('#menu-icon');
+                        const ci = btn.querySelector('#close-icon');
+                        if (mi && ci) {
+                            mi.classList.remove('hidden');
+                            ci.classList.add('hidden');
+                        }
+                    }
+                });
+                
+                // Toggle current menu
+                if (isHidden) {
+                    menu.classList.remove('hidden');
+                    menuIcon.classList.add('hidden');
+                    closeIcon.classList.remove('hidden');
+                } else {
+                    menu.classList.add('hidden');
+                    menuIcon.classList.remove('hidden');
+                    closeIcon.classList.add('hidden');
+                }
+            }
+        }
+        
+        // Make it globally accessible
+        window.toggleMobileMenu = toggleMobileMenu;
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menus = document.querySelectorAll('#mobile-menu');
+            const toggleButtons = document.querySelectorAll('#mobile-menu-toggle');
+            
+            menus.forEach((menu, index) => {
+                const toggleButton = toggleButtons[index];
+                if (menu && toggleButton && !menu.contains(e.target) && !toggleButton.contains(e.target)) {
+                    if (!menu.classList.contains('hidden')) {
+                        const menuIcon = toggleButton.querySelector('#menu-icon');
+                        const closeIcon = toggleButton.querySelector('#close-icon');
+                        if (menuIcon && closeIcon) {
+                            menu.classList.add('hidden');
+                            menuIcon.classList.remove('hidden');
+                            closeIcon.classList.add('hidden');
+                        }
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
