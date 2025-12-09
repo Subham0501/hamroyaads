@@ -117,88 +117,7 @@
     }
 </style>
 
-<!-- Theme Toggle Script - Initialize immediately -->
-<script>
-(function() {
-    'use strict';
-    
-    // Initialize theme on page load
-    function initTheme() {
-        const html = document.documentElement;
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        
-        if (savedTheme === 'dark') {
-            html.classList.add('dark');
-        } else {
-            html.classList.remove('dark');
-        }
-    }
-    
-    // Theme toggle function
-    function toggleTheme(e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        
-        const html = document.documentElement;
-        
-        console.log('Toggle theme clicked, current state:', html.classList.contains('dark') ? 'dark' : 'light');
-        
-        if (html.classList.contains('dark')) {
-            html.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-            console.log('Switched to light mode');
-        } else {
-            html.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-            console.log('Switched to dark mode');
-        }
-    }
-    
-    // Initialize theme immediately
-    initTheme();
-    
-    // Set up toggle button - try multiple approaches
-    function setupThemeToggle() {
-        const themeToggle = document.getElementById('theme-toggle');
-        
-        if (!themeToggle) {
-            console.error('Theme toggle button not found, retrying...');
-            setTimeout(setupThemeToggle, 100);
-            return;
-        }
-        
-        console.log('Theme toggle button found, attaching listener');
-        
-        // Remove any existing listeners by cloning
-        const newToggle = themeToggle.cloneNode(true);
-        themeToggle.parentNode.replaceChild(newToggle, themeToggle);
-        
-        // Add click event listener
-        newToggle.addEventListener('click', toggleTheme, false);
-        
-        // Also add mousedown as backup
-        newToggle.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            toggleTheme(e);
-        }, false);
-        
-        console.log('Theme toggle listener attached');
-    }
-    
-    // Try to set up immediately
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setupThemeToggle);
-    } else {
-        // DOM is already ready
-        setupThemeToggle();
-    }
-    
-    // Also try after a short delay as backup
-    setTimeout(setupThemeToggle, 500);
-})();
-</script>
+<!-- Theme toggle is handled globally in layouts/app.blade.php -->
 
 <div class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-50 dark:from-[#0f172a] dark:via-[#1a1f2e] dark:to-[#181d29] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
     <!-- Theme Toggle Button -->
@@ -315,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
     pinInput.focus();
     
     // Update PIN boxes when input changes
-    pinInput.addEventListener('input', function(e) {
+        pinInput.addEventListener('input', function(e) {
         const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
         e.target.value = value;
         
@@ -413,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
             box.style.borderColor = '#4ecdc4';
             box.style.boxShadow = '0 0 0 3px rgba(78, 205, 196, 0.1)';
         });
-    });
+        });
     
     pinInput.addEventListener('blur', function() {
         pinBoxes.forEach(box => {

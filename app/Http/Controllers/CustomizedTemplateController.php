@@ -23,32 +23,32 @@ class CustomizedTemplateController extends Controller
         ]);
         
         try {
-            $validated = $request->validate([
-                'template' => 'required|string',
-                'heading' => 'nullable|string|max:255',
-                'subheading' => 'nullable|string|max:255',
-                'message' => 'nullable|string',
-                'from' => 'nullable|string|max:255',
-                'section1_title' => 'nullable|string|max:255',
-                'section1_content' => 'nullable|string',
-                'section2_title' => 'nullable|string|max:255',
-                'section2_content' => 'nullable|string',
-                'section3_title' => 'nullable|string|max:255',
-                'section3_content' => 'nullable|string',
-                'section4_title' => 'nullable|string|max:255',
-                'section4_content' => 'nullable|string',
-                'section5_title' => 'nullable|string|max:255',
-                'section5_content' => 'nullable|string',
-                'theme_color' => 'nullable|string|max:7',
-                'bg_color' => 'nullable|string|max:7',
-                'bg_style' => 'nullable|string|in:gradient,solid,image',
-                'images' => 'nullable|array',
-                'status' => 'nullable|string|in:draft,published,archived',
-                'slug' => 'nullable|string|max:255',
-                'recipient_name' => 'required|string|max:255',
-                'pin' => 'required|string|size:5|regex:/^[0-9]{5}$/',
-            ]);
-            
+        $validated = $request->validate([
+            'template' => 'required|string',
+            'heading' => 'nullable|string|max:255',
+            'subheading' => 'nullable|string|max:255',
+            'message' => 'nullable|string',
+            'from' => 'nullable|string|max:255',
+            'section1_title' => 'nullable|string|max:255',
+            'section1_content' => 'nullable|string',
+            'section2_title' => 'nullable|string|max:255',
+            'section2_content' => 'nullable|string',
+            'section3_title' => 'nullable|string|max:255',
+            'section3_content' => 'nullable|string',
+            'section4_title' => 'nullable|string|max:255',
+            'section4_content' => 'nullable|string',
+            'section5_title' => 'nullable|string|max:255',
+            'section5_content' => 'nullable|string',
+            'theme_color' => 'nullable|string|max:7',
+            'bg_color' => 'nullable|string|max:7',
+            'bg_style' => 'nullable|string|in:gradient,solid,image',
+            'images' => 'nullable|array',
+            'status' => 'nullable|string|in:draft,published,archived',
+            'slug' => 'nullable|string|max:255',
+            'recipient_name' => 'required|string|max:255',
+            'pin' => 'required|string|size:5|regex:/^[0-9]{5}$/',
+        ]);
+
             \Log::info('Validation passed', ['recipient_name' => $validated['recipient_name'] ?? 'N/A']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Validation failed', [
@@ -61,11 +61,11 @@ class CustomizedTemplateController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             throw $e;
-        }
-
+            }
+            
         // Don't generate slug - admin will approve and generate slug later
         // Slug will be null for draft templates
-        
+
         // Handle image uploads if provided
         if ($request->has('images') && is_array($request->images) && !empty($request->images)) {
             try {

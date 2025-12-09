@@ -949,7 +949,7 @@ function showPublishModal() {
         // Use setTimeout to ensure DOM is ready
         setTimeout(() => {
             console.log('Attaching form handler after modal open...');
-            attachPublishFormHandler();
+        attachPublishFormHandler();
         }, 100);
     } else {
         console.error('Modal not found!');
@@ -967,8 +967,8 @@ function handlePublishSubmit(e) {
     
     // Always prevent default form submission FIRST
     if (e) {
-        e.preventDefault();
-        e.stopPropagation();
+            e.preventDefault();
+            e.stopPropagation();
         e.stopImmediatePropagation();
         console.log('Default prevented');
     }
@@ -981,8 +981,8 @@ function handlePublishSubmit(e) {
     if (submitBtn && submitBtn.disabled) {
         console.log('Button already disabled, ignoring duplicate submission');
         return false;
-    }
-    
+}
+
     // Prevent multiple simultaneous submissions
     console.log('isSubmitting flag:', isSubmitting);
     if (isSubmitting) {
@@ -991,15 +991,15 @@ function handlePublishSubmit(e) {
     }
     
     console.log('=== PROCESSING FORM SUBMISSION ===');
-    console.log('Publish form submitted');
-    
-    const recipientName = document.getElementById('recipient-name')?.value.trim();
-    const pin = document.getElementById('pin')?.value.trim();
-    
-    console.log('Recipient Name:', recipientName);
-    console.log('PIN:', pin);
-    
-    if (!recipientName) {
+        console.log('Publish form submitted');
+        
+        const recipientName = document.getElementById('recipient-name')?.value.trim();
+        const pin = document.getElementById('pin')?.value.trim();
+        
+        console.log('Recipient Name:', recipientName);
+        console.log('PIN:', pin);
+        
+        if (!recipientName) {
         Swal.fire({
             icon: 'warning',
             title: 'Recipient Name Required',
@@ -1007,11 +1007,11 @@ function handlePublishSubmit(e) {
             confirmButtonColor: '#ff6b6b',
             confirmButtonText: 'OK'
         });
-        document.getElementById('recipient-name')?.focus();
-        return false;
-    }
-    
-    if (!pin || pin.length !== 5) {
+            document.getElementById('recipient-name')?.focus();
+            return false;
+        }
+        
+        if (!pin || pin.length !== 5) {
         Swal.fire({
             icon: 'warning',
             title: 'PIN Required',
@@ -1019,12 +1019,12 @@ function handlePublishSubmit(e) {
             confirmButtonColor: '#ff6b6b',
             confirmButtonText: 'OK'
         });
-        document.getElementById('pin')?.focus();
-        return false;
-    }
-    
-    // Validate PIN is numeric
-    if (!/^\d{5}$/.test(pin)) {
+            document.getElementById('pin')?.focus();
+            return false;
+        }
+        
+        // Validate PIN is numeric
+        if (!/^\d{5}$/.test(pin)) {
         Swal.fire({
             icon: 'error',
             title: 'Invalid PIN',
@@ -1032,44 +1032,44 @@ function handlePublishSubmit(e) {
             confirmButtonColor: '#ff6b6b',
             confirmButtonText: 'OK'
         });
-        document.getElementById('pin')?.focus();
-        return false;
-    }
+            document.getElementById('pin')?.focus();
+            return false;
+        }
     
     // Set submitting flag IMMEDIATELY
     isSubmitting = true;
-    
-    // Disable submit button to prevent double submission
+        
+        // Disable submit button to prevent double submission
     const originalText = submitBtn ? submitBtn.textContent : 'Publish';
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Publishing...';
-    }
-    
-    // Call saveTemplate with name and PIN
-    saveTemplate(recipientName, pin).then(() => {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Publishing...';
+        }
+        
+        // Call saveTemplate with name and PIN
+        saveTemplate(recipientName, pin).then(() => {
         console.log('saveTemplate completed successfully');
         isSubmitting = false;
-        if (submitBtn) {
-            submitBtn.disabled = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
             submitBtn.textContent = originalText;
-        }
-    }).catch((error) => {
+            }
+        }).catch((error) => {
         console.error('saveTemplate error:', error);
         isSubmitting = false;
-        if (submitBtn) {
-            submitBtn.disabled = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
             submitBtn.textContent = originalText;
-        }
-        // Error is already handled in saveTemplate
+            }
+            // Error is already handled in saveTemplate
     }).finally(() => {
         // Safety: Reset flag after 5 seconds regardless
         setTimeout(() => {
             isSubmitting = false;
         }, 5000);
-    });
-    
-    return false;
+        });
+        
+        return false;
 }
 
 // Store the handler function reference to allow removal if needed
@@ -1133,8 +1133,8 @@ async function saveTemplate(recipientName, pin) {
     
     try {
         console.log('Building data object...');
-        const data = {
-            template: '{{ $template }}',
+    const data = {
+        template: '{{ $template }}',
             heading: document.getElementById('heading')?.value || '',
             subheading: document.getElementById('subheading')?.value || '',
             message: document.getElementById('message')?.value || '',
@@ -1143,21 +1143,21 @@ async function saveTemplate(recipientName, pin) {
             theme_color: currentThemeColor || '{{ $templateData['color'] }}',
             bg_color: currentBgColor || '#ffffff',
             bg_style: document.getElementById('bg-style')?.value || 'gradient',
-            status: 'published',
-            recipient_name: recipientName,
-            pin: pin,
-            section1_title: document.getElementById('section1-title')?.value || '',
-            section1_content: document.getElementById('section1-content')?.value || '',
-            section2_title: document.getElementById('section2-title')?.value || '',
-            section2_content: document.getElementById('section2-content')?.value || '',
-            section3_title: document.getElementById('section3-title')?.value || '',
-            section3_content: document.getElementById('section3-content')?.value || '',
-            section4_title: document.getElementById('section4-title')?.value || '',
-            section4_content: document.getElementById('section4-content')?.value || '',
-            section5_title: document.getElementById('section5-title')?.value || '',
-            section5_content: document.getElementById('section5-content')?.value || '',
-        };
-        
+        status: 'published',
+        recipient_name: recipientName,
+        pin: pin,
+        section1_title: document.getElementById('section1-title')?.value || '',
+        section1_content: document.getElementById('section1-content')?.value || '',
+        section2_title: document.getElementById('section2-title')?.value || '',
+        section2_content: document.getElementById('section2-content')?.value || '',
+        section3_title: document.getElementById('section3-title')?.value || '',
+        section3_content: document.getElementById('section3-content')?.value || '',
+        section4_title: document.getElementById('section4-title')?.value || '',
+        section4_content: document.getElementById('section4-content')?.value || '',
+        section5_title: document.getElementById('section5-title')?.value || '',
+        section5_content: document.getElementById('section5-content')?.value || '',
+    };
+    
         // Get CSRF token
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         
@@ -1184,16 +1184,16 @@ async function saveTemplate(recipientName, pin) {
             console.log('URL: /api/templates');
             console.log('Method: POST');
             const fetchPromise = fetch('/api/templates', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify(data)
-            });
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        });
             
             // Add timeout
             const timeoutPromise = new Promise((_, reject) => 
