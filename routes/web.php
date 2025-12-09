@@ -356,7 +356,12 @@ Route::middleware('auth')->group(function () {
     });
 });
 
+use Illuminate\Support\Facades\Artisan;
 
+Route::get('/run-migrations', function() {
+    Artisan::call('migrate', ["--force" => true]);
+    return "Migrations completed!";
+});
 // PIN verification route (must be before the slug route)
 Route::post('/{slug}/verify-pin', [CustomizedTemplateController::class, 'verifyPin'])->name('templates.verify-pin');
 
