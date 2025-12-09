@@ -7,8 +7,6 @@
     <title>@yield('title', 'Hamro Yaad - Custom Gifting Made Easy')</title>
     <meta name="description" content="Create beautiful custom gift websites for any occasion. Personalize templates, add QR codes, and share your love with the world.">
     
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    
     <style>
         /* Fallback styles to ensure content is visible */
         body {
