@@ -362,6 +362,14 @@ Route::get('/run-migrations', function() {
     Artisan::call('migrate', ["--force" => true]);
     return "Migrations completed!";
 });
+Route::get('/seed-admin', function () {
+    Artisan::call('db:seed', [
+        '--class' => 'Database\\Seeders\\AdminUserSeeder',
+        '--force' => true  // Forces seeder in production
+    ]);
+
+    return 'Admin user seeded successfully!';
+});
 // PIN verification route (must be before the slug route)
 Route::post('/{slug}/verify-pin', [CustomizedTemplateController::class, 'verifyPin'])->name('templates.verify-pin');
 
