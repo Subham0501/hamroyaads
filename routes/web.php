@@ -412,32 +412,56 @@ Route::get('/{slug}/gift-box', function ($slug) {
     return $controller->showGiftBox(request(), $slug);
 })->name('templates.gift-box');
 
-// Serve static assets from public/assets directory
+// Serve static assets from public/assets directory - must be before catch-all route
 Route::get('/assets/{file}', function ($file) {
-    // Sanitize the file path to prevent directory traversal
-    $file = basename($file);
+    // Sanitize filename to prevent directory traversal
+    $file = basename($file); // Remove any path components
+    
     $filePath = public_path('assets/' . $file);
     
-    // Check if file exists and is within the assets directory
+    // Check if file exists
+    if (!file_exists($filePath) || !is_file($filePath)) {
+        \Log::warning('Asset file not found', [
+            'requested_file' => $file,
+            'file_path' => $filePath,
+            'file_exists' => file_exists($filePath),
+            'is_file' => is_file($filePath),
+        ]);
+        abort(404, 'Asset file not found: ' . $file);
+    }
+    
+    // Security check: ensure file is within assets directory
     $realPath = realpath($filePath);
     $assetsDir = realpath(public_path('assets'));
     
-    if ($realPath && $assetsDir && str_starts_with($realPath, $assetsDir) && is_file($realPath)) {
-        $mimeType = mime_content_type($realPath) ?: 'application/octet-stream';
-        return response()->file($realPath, [
-            'Content-Type' => $mimeType,
-            'Cache-Control' => 'public, max-age=31536000',
+    if (!$realPath || !$assetsDir || !str_starts_with($realPath, $assetsDir)) {
+        \Log::warning('Asset file access denied - outside assets directory', [
+            'requested_file' => $file,
+            'real_path' => $realPath,
+            'assets_dir' => $assetsDir,
         ]);
+        abort(403, 'Access denied');
     }
     
-    \Log::warning('Asset file not found', [
-        'requested_file' => $file,
-        'file_path' => $filePath,
-        'real_path' => $realPath,
-        'assets_dir' => $assetsDir,
-    ]);
+    // Determine MIME type
+    $mimeType = mime_content_type($realPath);
+    if (!$mimeType) {
+        $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+        ];
+        $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
+    }
     
-    abort(404);
+    return response()->file($realPath, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
 })->where('file', '.*');
 
 // Published template route - must be last to avoid conflicts with other routes
