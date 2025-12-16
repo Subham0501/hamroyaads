@@ -4,10 +4,10 @@
 .env.production
 
 # Composer dependencies
-/vendor
+
 
 # Node modules
-/node_modules
+
 
 # Logs & caches
 *.log
