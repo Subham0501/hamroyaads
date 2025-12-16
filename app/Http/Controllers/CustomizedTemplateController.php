@@ -827,8 +827,26 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
-     * Save a base64 encoded image to storage (Cloudflare R2).
+    /**
+     * Get MIME type from file extension (fallback when fileinfo extension is not available)
      */
+    private function getMimeTypeFromExtension(string $extension): string
+    {
+        $mimeTypes = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+        ];
+        
+        $extension = strtolower($extension);
+        return $mimeTypes[$extension] ?? 'image/jpeg';
+    }
+
     private function saveBase64Image(string $base64Image, int $userId, string $prefix): string
     {
         // Extract image data
@@ -849,8 +867,36 @@ class CustomizedTemplateController extends Controller
             
             // For Cloudflare R2, no need to create directories (S3-compatible)
             if ($disk === 'cloudflare') {
-                // Save directly to Cloudflare R2
-                $saved = Storage::disk('cloudflare')->put($path, $imageData, 'public');
+                // Use S3 client directly to set explicit ContentType (avoids fileinfo dependency)
+                try {
+                    $s3Client = Storage::disk('cloudflare')->getDriver()->getAdapter()->getClient();
+                    $bucket = config('filesystems.disks.cloudflare.bucket');
+                    $mimeType = $this->getMimeTypeFromExtension($extension);
+                    
+                    $putObjectParams = [
+                        'Bucket' => $bucket,
+                        'Key' => $path,
+                        'Body' => $imageData,
+                        'ContentType' => $mimeType,
+                    ];
+                    
+                    // Cloudflare R2 may not support ACL, so make it optional
+                    // Public access is typically configured at bucket level in R2
+                    if (env('CLOUDFLARE_R2_USE_ACL', false)) {
+                        $putObjectParams['ACL'] = 'public-read';
+                    }
+                    
+                    $result = $s3Client->putObject($putObjectParams);
+                    
+                    $saved = isset($result['ETag']);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to upload to Cloudflare R2 using S3 client', [
+                        'error' => $e->getMessage(),
+                        'path' => $path
+                    ]);
+                    // Fallback to Storage facade (may fail if fileinfo is missing)
+                    $saved = Storage::disk('cloudflare')->put($path, $imageData, 'public');
+                }
                 
                 if ($saved) {
                     // Verify file was actually saved
