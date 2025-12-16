@@ -102,19 +102,72 @@
                             <label class="block text-base font-semibold text-gray-700 dark:text-[#cbd5e1] mb-3">Section 2 Content</label>
                             <textarea id="section2-content" rows="3" 
                                       class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-[#334155] bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white text-lg mb-3">{{ $templateData['defaults']['section2_content'] ?? 'The day we met changed everything.' }}</textarea>
-                            <label class="block text-base font-semibold text-gray-700 dark:text-[#cbd5e1] mb-3">Section 2 Image</label>
-                            <div class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                                <input type="file" id="section2-image" accept="image/*" class="hidden" data-image-type="section2">
-                                <label for="section2-image" class="cursor-pointer block">
-                                    <svg class="w-8 h-8 mx-auto text-gray-400 dark:text-[#475569] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                    </svg>
-                                    <p class="text-sm text-gray-600 dark:text-[#cbd5e1]">Upload Image</p>
-                                </label>
-                            </div>
-                            <div id="section2-preview" class="mt-3 hidden">
-                                <img id="section2-preview-img" src="" alt="Section 2" class="w-full h-32 object-cover rounded-lg">
-                                <button onclick="removeSectionImage('section2')" class="mt-2 w-full bg-red-500 text-white py-2 rounded-lg text-sm font-semibold hover:bg-red-600">Remove Image</button>
+                            <label class="block text-base font-semibold text-gray-700 dark:text-[#cbd5e1] mb-3">Section 2 Images (4 images)</label>
+                            <div class="grid grid-cols-4 gap-3">
+                                <!-- Image 1 -->
+                                <div>
+                                    <div id="section2-upload1" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section2-upload1'); document.getElementById('section2-image1')?.click()">
+                                        <input type="file" id="section2-image1" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section2-1">
+                                        <label for="section2-image1" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 1</p>
+                                        </label>
+                                    </div>
+                                    <div id="section2-preview1" class="hidden">
+                                        <img id="section2-preview-img1" src="" alt="Section 2 Image 1" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section2-1')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
+                                </div>
+                                <!-- Image 2 -->
+                                <div>
+                                    <div id="section2-upload2" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section2-upload2'); document.getElementById('section2-image2')?.click()">
+                                        <input type="file" id="section2-image2" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section2-2">
+                                        <label for="section2-image2" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 2</p>
+                                        </label>
+                                    </div>
+                                    <div id="section2-preview2" class="hidden">
+                                        <img id="section2-preview-img2" src="" alt="Section 2 Image 2" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section2-2')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
+                                </div>
+                                <!-- Image 3 -->
+                                <div>
+                                    <div id="section2-upload3" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section2-upload3'); document.getElementById('section2-image3')?.click()">
+                                        <input type="file" id="section2-image3" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section2-3">
+                                        <label for="section2-image3" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 3</p>
+                                        </label>
+                                    </div>
+                                    <div id="section2-preview3" class="hidden">
+                                        <img id="section2-preview-img3" src="" alt="Section 2 Image 3" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section2-3')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
+                                </div>
+                                <!-- Image 4 -->
+                                <div>
+                                    <div id="section2-upload4" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section2-upload4'); document.getElementById('section2-image4')?.click()">
+                                        <input type="file" id="section2-image4" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section2-4">
+                                        <label for="section2-image4" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 4</p>
+                                        </label>
+                                    </div>
+                                    <div id="section2-preview4" class="hidden">
+                                        <img id="section2-preview-img4" src="" alt="Section 2 Image 4" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section2-4')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -128,46 +181,55 @@
                                       class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-[#334155] bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white text-lg mb-3">{{ $templateData['defaults']['section3_content'] ?? 'Together we\'ve created countless beautiful memories.' }}</textarea>
                             <label class="block text-base font-semibold text-gray-700 dark:text-[#cbd5e1] mb-3">Section 3 Images (3 images)</label>
                             <div class="grid grid-cols-3 gap-3">
-                                <div class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                                    <input type="file" id="section3-image1" accept="image/*" class="hidden" data-image-type="section3-1">
-                                    <label for="section3-image1" class="cursor-pointer block">
-                                        <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                        <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 1</p>
-                                    </label>
+                                <!-- Image 1 -->
+                                <div>
+                                    <div id="section3-upload1" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section3-upload1'); document.getElementById('section3-image1')?.click()">
+                                        <input type="file" id="section3-image1" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section3-1">
+                                        <label for="section3-image1" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 1</p>
+                                        </label>
+                                    </div>
+                                    <div id="section3-preview1" class="hidden">
+                                        <img id="section3-preview-img1" src="" alt="Section 3 Image 1" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section3-1')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
                                 </div>
-                                <div class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                                    <input type="file" id="section3-image2" accept="image/*" class="hidden" data-image-type="section3-2">
-                                    <label for="section3-image2" class="cursor-pointer block">
-                                        <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                        <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 2</p>
-                                    </label>
+                                
+                                <!-- Image 2 -->
+                                <div>
+                                    <div id="section3-upload2" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section3-upload2'); document.getElementById('section3-image2')?.click()">
+                                        <input type="file" id="section3-image2" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section3-2">
+                                        <label for="section3-image2" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 2</p>
+                                        </label>
+                                    </div>
+                                    <div id="section3-preview2" class="hidden">
+                                        <img id="section3-preview-img2" src="" alt="Section 3 Image 2" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section3-2')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
                                 </div>
-                                <div class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                                    <input type="file" id="section3-image3" accept="image/*" class="hidden" data-image-type="section3-3">
-                                    <label for="section3-image3" class="cursor-pointer block">
-                                        <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                        <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 3</p>
-                                    </label>
-                                </div>
-                            </div>
-                            <div id="section3-previews" class="mt-3 grid grid-cols-3 gap-3">
-                                <div id="section3-preview1" class="hidden">
-                                    <img id="section3-preview-img1" src="" alt="Section 3 Image 1" class="w-full h-24 object-cover rounded-lg mb-1">
-                                    <button onclick="removeSectionImage('section3-1')" class="w-full bg-red-500 text-white py-1 rounded text-xs">Remove</button>
-                                </div>
-                                <div id="section3-preview2" class="hidden">
-                                    <img id="section3-preview-img2" src="" alt="Section 3 Image 2" class="w-full h-24 object-cover rounded-lg mb-1">
-                                    <button onclick="removeSectionImage('section3-2')" class="w-full bg-red-500 text-white py-1 rounded text-xs">Remove</button>
-                                </div>
-                                <div id="section3-preview3" class="hidden">
-                                    <img id="section3-preview-img3" src="" alt="Section 3 Image 3" class="w-full h-24 object-cover rounded-lg mb-1">
-                                    <button onclick="removeSectionImage('section3-3')" class="w-full bg-red-500 text-white py-1 rounded text-xs">Remove</button>
+                                
+                                <!-- Image 3 -->
+                                <div>
+                                    <div id="section3-upload3" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-lg p-3 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('section3-upload3'); document.getElementById('section3-image3')?.click()">
+                                        <input type="file" id="section3-image3" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="section3-3">
+                                        <label for="section3-image3" class="cursor-pointer block">
+                                            <svg class="w-6 h-6 mx-auto text-gray-400 dark:text-[#475569] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            <p class="text-xs text-gray-600 dark:text-[#cbd5e1]">Image 3</p>
+                                        </label>
+                                    </div>
+                                    <div id="section3-preview3" class="hidden">
+                                        <img id="section3-preview-img3" src="" alt="Section 3 Image 3" class="w-full h-24 object-cover rounded-lg mb-1">
+                                        <button onclick="removeSectionImage('section3-3')" class="w-full bg-red-500 text-white py-1 rounded text-xs hover:bg-red-600">Remove</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -268,8 +330,8 @@
                     
                     <div>
                         <label class="block text-base font-semibold text-gray-700 dark:text-[#cbd5e1] mb-3">Main Hero Image</label>
-                        <div class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-xl p-6 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                            <input type="file" id="hero-image" accept="image/*" class="hidden" data-image-type="hero">
+                        <div id="hero-upload-area" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-xl p-6 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('hero-upload-area'); document.getElementById('hero-image')?.click()">
+                            <input type="file" id="hero-image" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" class="hidden" data-image-type="hero">
                             <label for="hero-image" class="cursor-pointer block">
                                 <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-[#475569] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -302,8 +364,8 @@
                         <p class="text-sm text-gray-600 dark:text-[#cbd5e1] mb-4">Add multiple photos to create a beautiful memories section</p>
                         
                         <!-- Add Memory Button -->
-                        <div class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-xl p-6 text-center hover:border-blue-500 transition-colors cursor-pointer">
-                            <input type="file" id="memory-upload" accept="image/*" multiple class="hidden">
+                        <div id="memory-upload-area" class="border-2 border-dashed border-gray-300 dark:border-[#334155] rounded-xl p-6 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="highlightUploadArea('memory-upload-area'); document.getElementById('memory-upload').click()">
+                            <input type="file" id="memory-upload" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" multiple class="hidden">
                             <label for="memory-upload" class="cursor-pointer block">
                                 <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-[#475569] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -357,21 +419,64 @@
 <script>
 // Store uploaded images and memories
 const uploadedImages = {
-    hero: null,
-    memories: [],
-    section2: null,
-    section3: {
+    // memories: [],
+    section2: {
         image1: null,
         image2: null,
-        image3: null
-    }
-};
+        image3: null,
+        image4: null
+    },
+    section3: null,};
 
 let currentThemeColor = '{{ $templateData['color'] }}';
 let currentBgColor = '#ffffff';
 
+// Highlight upload area when clicked - MUST be defined before DOMContentLoaded
+function highlightUploadArea(areaId) {
+    console.log('highlightUploadArea called with:', areaId);
+    
+    // Remove highlight from all upload areas
+    document.querySelectorAll('[id$="-upload-area"], [id^="section2-upload"], [id^="section3-upload"], [id^="hero-upload"], [id^="memory-upload"]').forEach(el => {
+        el.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+        el.style.boxShadow = '';
+    });
+    
+    // Highlight the clicked area
+    const area = document.getElementById(areaId);
+    console.log('Area found:', !!area, areaId);
+    
+    if (area) {
+        area.classList.add('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+        area.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.3)';
+        area.style.transition = 'all 0.3s ease';
+        area.style.borderColor = '#3b82f6';
+        
+        // Scroll into view if needed
+        area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+            area.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+            area.style.boxShadow = '';
+            area.style.borderColor = '';
+        }, 2000);
+    } else {
+        console.error('Upload area not found:', areaId);
+    }
+}
+
+// Make sure function is globally accessible
+window.highlightUploadArea = highlightUploadArea;
+
 // Update preview in real-time
 document.addEventListener('DOMContentLoaded', function() {
+    // Get input elements first
+    const headingInput = document.getElementById('heading');
+    const subheadingInput = document.getElementById('subheading');
+    const messageInput = document.getElementById('message');
+    const fromInput = document.getElementById('from');
+    const previewContainer = document.getElementById('template-preview');
+    
     // Load saved data if exists
     const savedData = localStorage.getItem('template_data');
     if (savedData) {
@@ -398,10 +503,32 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (data.sections[`section${i}`]) {
                             const titleInput = document.getElementById(`section${i}-title`);
                             const contentInput = document.getElementById(`section${i}-content`);
-                            if (titleInput) titleInput.value = data.sections[`section${i}`].title;
-                            if (contentInput) contentInput.value = data.sections[`section${i}`].content;
+                            if (titleInput) {
+                                titleInput.value = data.sections[`section${i}`].title;
+                                // Trigger input event to update preview
+                                titleInput.dispatchEvent(new Event('input'));
+                            }
+                            if (contentInput) {
+                                contentInput.value = data.sections[`section${i}`].content;
+                                // Trigger input event to update preview
+                                contentInput.dispatchEvent(new Event('input'));
+                            }
                         }
                     }
+                }
+                
+                // Trigger input events to update preview with loaded values
+                if (headingInput && data.heading) {
+                    headingInput.dispatchEvent(new Event('input'));
+                }
+                if (subheadingInput && data.subheading) {
+                    subheadingInput.dispatchEvent(new Event('input'));
+                }
+                if (messageInput && data.message) {
+                    messageInput.dispatchEvent(new Event('input'));
+                }
+                if (fromInput && data.from) {
+                    fromInput.dispatchEvent(new Event('input'));
                 }
                 
                 // Load images
@@ -422,7 +549,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             heroPreviewImg.src = data.images.hero;
                             heroPreview.classList.remove('hidden');
                         }
+                        // Hide upload area for hero
+                        const uploadArea = document.getElementById('hero-upload-area');
+                        if (uploadArea) {
+                            uploadArea.style.display = 'none';
+                            // Remove highlight
+                            uploadArea.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+                            uploadArea.style.boxShadow = '';
+                        }
                         updatePreviewImage('hero', data.images.hero);
+                    } else {
+                        // Show upload area if no hero image
+                        const uploadArea = document.querySelector('#hero-image').closest('.border-dashed');
+                        if (uploadArea) uploadArea.style.display = 'block';
                     }
                     
                     if (data.images.section2) {
@@ -433,7 +572,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             section2PreviewImg.src = data.images.section2;
                             section2Preview.classList.remove('hidden');
                         }
+                        // Hide upload area for section2
+                        const uploadArea = document.getElementById('section2-upload-area');
+                        if (uploadArea) {
+                            uploadArea.style.display = 'none';
+                            // Remove highlight
+                            uploadArea.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+                            uploadArea.style.boxShadow = '';
+                        }
                         updatePreviewImage('section2', data.images.section2);
+                    } else {
+                        // Show upload area if no section2 image
+                        const uploadArea = document.querySelector('#section2-image').closest('.border-dashed');
+                        if (uploadArea) uploadArea.style.display = 'block';
                     }
                     
                     // Section 3 images
@@ -441,19 +592,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (data.images.section3 && data.images.section3[`image${i}`]) {
                             const preview = document.getElementById(`section3-preview${i}`);
                             const previewImg = document.getElementById(`section3-preview-img${i}`);
+                            const upload = document.getElementById(`section3-upload${i}`);
                             if (preview && previewImg) {
                                 previewImg.src = data.images.section3[`image${i}`];
                                 preview.classList.remove('hidden');
                             }
+                            if (upload) {
+                                upload.classList.add('hidden');
+                            }
                             updatePreviewImage(`section3-${i}`, data.images.section3[`image${i}`]);
+                        } else {
+                            // Ensure upload box is visible if no image
+                            const upload = document.getElementById(`section3-upload${i}`);
+                            const preview = document.getElementById(`section3-preview${i}`);
+                            if (upload) upload.classList.remove('hidden');
+                            if (preview) preview.classList.add('hidden');
                         }
                     }
                     
                     // Memories
                     if (data.images.memories && data.images.memories.length > 0) {
-                        data.images.memories.forEach(memory => {
-                            addMemoryToGrid(memory);
-                        });
+                        uploadedImages.memories = data.images.memories;
+                        updateMemoriesInPreview();
+                    } else {
+                        // Clear memories if none exist
+                        uploadedImages.memories = [];
                         updateMemoriesInPreview();
                     }
                 }
@@ -473,86 +636,242 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Text inputs
-    const headingInput = document.getElementById('heading');
-    const subheadingInput = document.getElementById('subheading');
-    const messageInput = document.getElementById('message');
-    const fromInput = document.getElementById('from');
-    
-    const previewHeading = document.getElementById('preview-heading');
-    const previewSubheading = document.getElementById('preview-subheading');
-    const previewMessage = document.getElementById('preview-message');
-    const previewFrom = document.getElementById('preview-from');
-    
-    // Real-time text updates
-    if (headingInput && previewHeading) {
+    // Real-time text updates - update all instances in preview
+    if (headingInput) {
         headingInput.addEventListener('input', function(e) {
-            previewHeading.textContent = e.target.value || '{{ $templateData['defaults']['heading'] }}';
+            const value = e.target.value || '{{ $templateData['defaults']['heading'] }}';
+            // Update all preview headings
+            const previewHeadings = previewContainer.querySelectorAll('#preview-heading');
+            previewHeadings.forEach(heading => {
+                heading.textContent = value;
+            });
+            console.log('Heading updated:', value);
         });
     }
     
-    if (subheadingInput && previewSubheading) {
+    if (subheadingInput) {
         subheadingInput.addEventListener('input', function(e) {
-            previewSubheading.textContent = e.target.value || '{{ $templateData['defaults']['subheading'] }}';
+            const value = e.target.value || '{{ $templateData['defaults']['subheading'] }}';
+            // Update all preview subheadings
+            const previewSubheadings = previewContainer.querySelectorAll('#preview-subheading');
+            previewSubheadings.forEach(subheading => {
+                subheading.textContent = value;
+            });
+            console.log('Subheading updated:', value);
         });
     }
     
-    if (messageInput && previewMessage) {
+    if (messageInput) {
         messageInput.addEventListener('input', function(e) {
-            previewMessage.textContent = e.target.value || '{{ $templateData['defaults']['message'] }}';
+            const value = e.target.value || '{{ $templateData['defaults']['message'] }}';
+            // Update all preview messages
+            const previewMessages = previewContainer.querySelectorAll('#preview-message');
+            previewMessages.forEach(message => {
+                message.textContent = value;
+            });
+            console.log('Message updated:', value);
         });
     }
     
-    if (fromInput && previewFrom) {
+    if (fromInput) {
         fromInput.addEventListener('input', function(e) {
-            previewFrom.textContent = e.target.value || '{{ $templateData['defaults']['from'] ?? 'Your Name' }}';
+            const value = e.target.value || '{{ $templateData['defaults']['from'] ?? 'Your Name' }}';
+            // Update all preview from fields
+            const previewFroms = previewContainer.querySelectorAll('#preview-from');
+            previewFroms.forEach(fromEl => {
+                // Handle nested span elements
+                const span = fromEl.querySelector('span');
+                if (span) {
+                    span.textContent = value;
+                } else {
+                    fromEl.textContent = value;
+                }
+            });
+            console.log('From updated:', value);
         });
     }
     
     // Section inputs - update preview in real-time
-    const previewContainer = document.getElementById('template-preview');
-    
     for (let i = 1; i <= 5; i++) {
         const titleInput = document.getElementById(`section${i}-title`);
         const contentInput = document.getElementById(`section${i}-content`);
         
         if (titleInput && previewContainer) {
             titleInput.addEventListener('input', function(e) {
-                // Find preview element inside the preview container
-                const previewTitle = previewContainer.querySelector(`#section${i}-title`);
-                if (previewTitle) {
-                    previewTitle.textContent = e.target.value || `Section ${i} Title`;
-                }
+                const value = e.target.value || `Section ${i} Title`;
+                // Update all instances of this section title
+                const previewTitles = previewContainer.querySelectorAll(`#section${i}-title`);
+                previewTitles.forEach(title => {
+                    title.textContent = value;
+                });
+                console.log(`Section ${i} title updated:`, value);
             });
         }
         
         if (contentInput && previewContainer) {
             contentInput.addEventListener('input', function(e) {
-                // Find preview element inside the preview container
-                const previewContent = previewContainer.querySelector(`#section${i}-content`);
-                if (previewContent) {
-                    previewContent.textContent = e.target.value || `Section ${i} content`;
-                }
+                const value = e.target.value || `Section ${i} content`;
+                // Update all instances of this section content
+                const previewContents = previewContainer.querySelectorAll(`#section${i}-content`);
+                previewContents.forEach(content => {
+                    content.textContent = value;
+                });
+                console.log(`Section ${i} content updated:`, value);
             });
         }
     }
     
+    // Initialize preview with current input values
+    function initializePreview() {
+        if (!previewContainer) {
+            console.warn('Preview container not found');
+            return;
+        }
+        
+        // Update heading
+        if (headingInput) {
+            const value = headingInput.value || '{{ $templateData['defaults']['heading'] }}';
+            const previewHeadings = previewContainer.querySelectorAll('#preview-heading');
+            previewHeadings.forEach(heading => {
+                heading.textContent = value;
+            });
+        }
+        
+        // Update subheading
+        if (subheadingInput) {
+            const value = subheadingInput.value || '{{ $templateData['defaults']['subheading'] }}';
+            const previewSubheadings = previewContainer.querySelectorAll('#preview-subheading');
+            previewSubheadings.forEach(subheading => {
+                subheading.textContent = value;
+            });
+        }
+        
+        // Update message
+        if (messageInput) {
+            const value = messageInput.value || '{{ $templateData['defaults']['message'] }}';
+            const previewMessages = previewContainer.querySelectorAll('#preview-message');
+            previewMessages.forEach(message => {
+                message.textContent = value;
+            });
+        }
+        
+        // Update from
+        if (fromInput) {
+            const value = fromInput.value || '{{ $templateData['defaults']['from'] ?? 'Your Name' }}';
+            const previewFroms = previewContainer.querySelectorAll('#preview-from');
+            previewFroms.forEach(fromEl => {
+                const span = fromEl.querySelector('span');
+                if (span) {
+                    span.textContent = value;
+                } else {
+                    fromEl.textContent = value;
+                }
+            });
+        }
+        
+        // Update sections
+        for (let i = 1; i <= 5; i++) {
+            const titleInput = document.getElementById(`section${i}-title`);
+            const contentInput = document.getElementById(`section${i}-content`);
+            
+            if (titleInput) {
+                const value = titleInput.value || `Section ${i} Title`;
+                const previewTitles = previewContainer.querySelectorAll(`#section${i}-title`);
+                previewTitles.forEach(title => {
+                    title.textContent = value;
+                });
+            }
+            
+            if (contentInput) {
+                const value = contentInput.value || `Section ${i} content`;
+                const previewContents = previewContainer.querySelectorAll(`#section${i}-content`);
+                previewContents.forEach(content => {
+                    content.textContent = value;
+                });
+            }
+        }
+    }
+    
     // Hero image upload
-    setupImageUpload('hero-image', 'hero', 'hero-preview', 'hero-preview-img');
-    
+        
     // Section 2 image upload
-    setupImageUpload('section2-image', 'section2', 'section2-preview', 'section2-preview-img');
-    
+        
     // Section 3 images upload
-    setupImageUpload('section3-image1', 'section3-1', 'section3-preview1', 'section3-preview-img1');
-    setupImageUpload('section3-image2', 'section3-2', 'section3-preview2', 'section3-preview-img2');
-    setupImageUpload('section3-image3', 'section3-3', 'section3-preview3', 'section3-preview-img3');
+                
+    // Image upload setup
+    setupImageUpload('section2-image1', 'section2-1', 'section2-preview1', 'section2-preview-img1');
+    setupImageUpload('section2-image2', 'section2-2', 'section2-preview2', 'section2-preview-img2');
+    setupImageUpload('section2-image3', 'section2-3', 'section2-preview3', 'section2-preview-img3');
+    setupImageUpload('section2-image4', 'section2-4', 'section2-preview4', 'section2-preview-img4');
+
+    // Initialize preview after all event listeners are set up
+    setTimeout(initializePreview, 200);    
+    // Initialize memories preview - clear any default images immediately
+    updateMemoriesInPreview();
+    
+    // Also ensure all section images are hidden by default
+    setTimeout(() => {
+        // Hide all section2 images by default
+        const section2Imgs = previewContainer.querySelectorAll('#section2-image-display');
+        const section2Placeholders = previewContainer.querySelectorAll('#section2-placeholder');
+        section2Imgs.forEach(img => {
+            if (!uploadedImages.section2) {
+                img.classList.add('hidden');
+                img.style.display = 'none';
+            }
+        });
+        section2Placeholders.forEach(placeholder => {
+            if (!uploadedImages.section2) {
+                placeholder.style.display = 'block';
+                placeholder.classList.remove('hidden');
+            }
+        });
+        
+        // Hide all section3 images by default
+        for (let i = 1; i <= 3; i++) {
+            const imgs = previewContainer.querySelectorAll(`#section3-image${i}-display`);
+            const placeholders = previewContainer.querySelectorAll(`#section3-placeholder${i}`);
+            imgs.forEach(img => {
+                if (!uploadedImages.section3 || !uploadedImages.section3[`image${i}`]) {
+                    img.classList.add('hidden');
+                    img.style.display = 'none';
+                }
+            });
+            placeholders.forEach(placeholder => {
+                if (!uploadedImages.section3 || !uploadedImages.section3[`image${i}`]) {
+                    placeholder.style.display = 'block';
+                    placeholder.classList.remove('hidden');
+                }
+            });
+        }
+        
+        // Hide hero images by default
+        const heroImgs = previewContainer.querySelectorAll('#hero-image-display, [data-image="hero"]');
+        heroImgs.forEach(img => {
+            if (!uploadedImages.hero) {
+                img.style.display = 'none';
+                img.style.opacity = '0';
+                img.style.visibility = 'hidden';
+            }
+        });
+        
+        // Update memories again to ensure it's cleared
+        updateMemoriesInPreview();
+    }, 100);
     
     // Memories upload
     const memoryUpload = document.getElementById('memory-upload');
     if (memoryUpload) {
         memoryUpload.addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
+            const memoryUploadArea = document.getElementById('memory-upload-area');
+            
+            // Show loading state
+            if (memoryUploadArea) {
+                memoryUploadArea.style.opacity = '0.6';
+                memoryUploadArea.style.pointerEvents = 'none';
+            }
+            
             files.forEach(file => {
                 if (file.size > 10 * 1024 * 1024) {
                     Swal.fire({
@@ -562,14 +881,30 @@ document.addEventListener('DOMContentLoaded', function() {
                         confirmButtonColor: '#ff6b6b',
                         confirmButtonText: 'OK'
                     });
+                    // Restore upload area
+                    if (memoryUploadArea) {
+                        memoryUploadArea.style.opacity = '1';
+                        memoryUploadArea.style.pointerEvents = 'auto';
+                    }
                     return;
                 }
                 
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     uploadedImages.memories.push(e.target.result);
-                    addMemoryToGrid(e.target.result);
                     updateMemoriesInPreview();
+                    // Restore upload area
+                    if (memoryUploadArea) {
+                        memoryUploadArea.style.opacity = '1';
+                        memoryUploadArea.style.pointerEvents = 'auto';
+                    }
+                };
+                reader.onerror = function() {
+                    // Restore upload area on error
+                    if (memoryUploadArea) {
+                        memoryUploadArea.style.opacity = '1';
+                        memoryUploadArea.style.pointerEvents = 'auto';
+                    }
                 };
                 reader.readAsDataURL(file);
             });
@@ -651,10 +986,112 @@ function setupImageUpload(inputId, imageType, previewId, previewImgId) {
     const preview = document.getElementById(previewId);
     const previewImg = document.getElementById(previewImgId);
     
+    console.log('Setting up image upload:', { inputId, imageType, previewId, previewImgId, inputFound: !!input });
+    
     if (input) {
-        input.addEventListener('change', function(e) {
+        // Remove any existing listeners by cloning the input
+        const newInput = input.cloneNode(true);
+        
+        // Ensure accept attribute is preserved (should be preserved by cloneNode, but being explicit)
+        const acceptValue = input.getAttribute('accept') || input.accept || 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
+        newInput.setAttribute('accept', acceptValue);
+        newInput.accept = acceptValue;
+        
+        // Ensure the input is properly configured
+        newInput.type = 'file';
+        newInput.className = input.className;
+        newInput.id = inputId; // Ensure ID is preserved
+        
+        // Preserve other important attributes
+        if (input.hasAttribute('multiple')) {
+            newInput.setAttribute('multiple', 'multiple');
+        }
+        if (input.hasAttribute('data-image-type')) {
+            newInput.setAttribute('data-image-type', input.getAttribute('data-image-type'));
+        }
+        
+        // Debug: Log the accept attribute to verify it's set
+        console.log('Input cloned:', { inputId, accept: newInput.accept, acceptAttr: newInput.getAttribute('accept') });
+        
+        input.parentNode.replaceChild(newInput, input);
+        
+        // Update the onclick handler to use the new input (for section2, section3, and hero)
+        if (inputId.includes('section2-image') || inputId.includes('section3-image') || inputId === 'hero-image') {
+            let uploadDiv;
+            let areaId = '';
+            
+            if (inputId === 'hero-image') {
+                uploadDiv = document.getElementById('hero-upload-area');
+                areaId = 'hero-upload-area';
+            } else if (inputId.includes('section2-image')) {
+                const num = inputId.replace('section2-image', '');
+                uploadDiv = document.getElementById(`section2-upload${num}`);
+                areaId = `section2-upload${num}`;
+            } else if (inputId.includes('section3-image')) {
+                const num = inputId.replace('section3-image', '');
+                uploadDiv = document.getElementById(`section3-upload${num}`);
+                areaId = `section3-upload${num}`;
+            }
+            
+            if (uploadDiv && areaId) {
+                uploadDiv.setAttribute('onclick', `highlightUploadArea('${areaId}'); document.getElementById('${inputId}')?.click()`);
+            }
+        }
+        
+        newInput.addEventListener('change', function(e) {
+            console.log('File input changed:', { imageType, files: e.target.files, inputId });
             const file = e.target.files[0];
+            const inputElement = e.target; // Store reference to the input
+            
             if (file) {
+                console.log('File selected:', { name: file.name, size: file.size, type: file.type });
+                
+                                // Show loading state on upload area
+                let uploadAreaId = '';
+                if (imageType.startsWith('section2-')) {
+                    const num = imageType.split('-')[1];
+                    uploadAreaId = `section2-upload${num}`;
+                } else if (imageType.startsWith('section2-')) {
+                    const num = imageType.split('-')[1];
+                    uploadAreaId = `section2-upload${num}`;
+                } else if (imageType === 'section2') {
+                    uploadAreaId = 'section2-upload-area';
+                } else if (imageType === 'hero') {
+                    uploadAreaId = 'hero-upload-area';
+                } else if (imageType.startsWith('section3-')) {
+                    const num = imageType.split('-')[1];
+                    uploadAreaId = `section3-upload${num}`;
+                }
+                
+                if (uploadAreaId) {
+                    const uploadArea = document.getElementById(uploadAreaId);
+                    if (uploadArea) {
+                        uploadArea.style.opacity = '0.6';
+                        uploadArea.style.pointerEvents = 'none';
+                    }
+                }
+                
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid File Type',
+                        text: 'Please select an image file (JPG, PNG, etc.)',
+                        confirmButtonColor: '#ff6b6b',
+                        confirmButtonText: 'OK'
+                    });
+                    inputElement.value = ''; // Reset input to allow reselection
+                    // Restore upload area
+                    if (uploadAreaId) {
+                        const uploadArea = document.getElementById(uploadAreaId);
+                        if (uploadArea) {
+                            uploadArea.style.opacity = '1';
+                            uploadArea.style.pointerEvents = 'auto';
+                        }
+                    }
+                    return;
+                }
+                
                 if (file.size > 10 * 1024 * 1024) {
                     Swal.fire({
                         icon: 'error',
@@ -663,49 +1100,176 @@ function setupImageUpload(inputId, imageType, previewId, previewImgId) {
                         confirmButtonColor: '#ff6b6b',
                         confirmButtonText: 'OK'
                     });
+                    inputElement.value = ''; // Reset input to allow reselection
+                    // Restore upload area
+                    if (uploadAreaId) {
+                        const uploadArea = document.getElementById(uploadAreaId);
+                        if (uploadArea) {
+                            uploadArea.style.opacity = '1';
+                            uploadArea.style.pointerEvents = 'auto';
+                        }
+                    }
                     return;
                 }
                 
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const imageSrc = e.target.result;
-                    if (previewImg) previewImg.src = imageSrc;
-                    if (preview) preview.classList.remove('hidden');
+                    console.log('Image loaded as base64:', { imageType, length: imageSrc.length });
                     
-                    // Store image based on type
-                    if (imageType === 'section2') {
+                                        // Store image based on type
+                    if (imageType.startsWith('section2-')) {
+                        const num = imageType.split('-')[1];
+                        uploadedImages.section2[`image${num}`] = imageSrc;
+                        // Show preview and hide upload for this specific image
+                        const previewDiv = document.getElementById(`section2-preview${num}`);
+                        const uploadDiv = document.getElementById(`section2-upload${num}`);
+                        const previewImgEl = document.getElementById(`section2-preview-img${num}`);
+                        
+                        if (previewDiv && previewImgEl) {
+                            previewImgEl.src = imageSrc;
+                            previewDiv.classList.remove('hidden');
+                        }
+                        if (uploadDiv) {
+                            uploadDiv.classList.add('hidden');
+                            uploadDiv.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+                            uploadDiv.style.boxShadow = '';
+                        }
+                    } else if (imageType === 'section2') {
                         uploadedImages.section2 = imageSrc;
+                        if (previewImg) previewImg.src = imageSrc;
+                        if (preview) preview.classList.remove('hidden');
+                        // Hide upload area for section2
+                        const uploadArea = document.getElementById('section2-upload-area');
+                        if (uploadArea) {
+                            uploadArea.style.display = 'none';
+                            // Remove highlight
+                            uploadArea.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+                            uploadArea.style.boxShadow = '';
+                        }
                     } else if (imageType.startsWith('section3-')) {
                         const num = imageType.split('-')[1];
                         uploadedImages.section3[`image${num}`] = imageSrc;
+                        // Show preview and hide upload for this specific image
+                        const previewDiv = document.getElementById(`section3-preview${num}`);
+                        const uploadDiv = document.getElementById(`section3-upload${num}`);
+                        const previewImgEl = document.getElementById(`section3-preview-img${num}`);
+                        
+                        if (previewDiv && previewImgEl) {
+                            previewImgEl.src = imageSrc;
+                            previewDiv.classList.remove('hidden');
+                        }
+                        if (uploadDiv) {
+                            uploadDiv.classList.add('hidden');
+                            // Remove highlight
+                            uploadDiv.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+                            uploadDiv.style.boxShadow = '';
+                        }
+                    } else if (imageType === 'hero') {
+                        uploadedImages.hero = imageSrc;
+                        if (previewImg) previewImg.src = imageSrc;
+                        if (preview) preview.classList.remove('hidden');
+                        // Hide upload area for hero
+                        const uploadArea = document.getElementById('hero-upload-area');
+                        if (uploadArea) {
+                            uploadArea.style.display = 'none';
+                            // Remove highlight
+                            uploadArea.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50', 'border-blue-500');
+                            uploadArea.style.boxShadow = '';
+                        }
                     } else {
                         uploadedImages[imageType] = imageSrc;
+                        if (previewImg) previewImg.src = imageSrc;
+                        if (preview) preview.classList.remove('hidden');
                     }
                     
-                    // Update preview immediately
+                    console.log('Image stored:', { imageType, uploadedImages });
+                    
+                    // Restore upload area opacity
+                    if (uploadAreaId) {
+                        const uploadArea = document.getElementById(uploadAreaId);
+                        if (uploadArea) {
+                            uploadArea.style.opacity = '1';
+                            uploadArea.style.pointerEvents = 'auto';
+                        }
+                    }
+                    
+                    // Update preview immediately - call multiple times to ensure it works
+                    console.log('Calling updatePreviewImage with:', { imageType, hasImageSrc: !!imageSrc });
+                    updatePreviewImage(imageType, imageSrc);
                     setTimeout(() => {
+                        console.log('Retrying updatePreviewImage (100ms delay)');
                         updatePreviewImage(imageType, imageSrc);
                     }, 100);
+                    setTimeout(() => {
+                        console.log('Retrying updatePreviewImage (300ms delay)');
+                        updatePreviewImage(imageType, imageSrc);
+                    }, 300);
+                    setTimeout(() => {
+                        console.log('Final retry updatePreviewImage (1000ms delay)');
+                        updatePreviewImage(imageType, imageSrc);
+                    }, 1000);
+                };
+                reader.onerror = function(error) {
+                    console.error('FileReader error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error Reading File',
+                        text: 'Failed to read the image file. Please try again.',
+                        confirmButtonColor: '#ff6b6b',
+                        confirmButtonText: 'OK'
+                    });
+                    inputElement.value = ''; // Reset input to allow reselection
+                    // Restore upload area
+                    if (uploadAreaId) {
+                        const uploadArea = document.getElementById(uploadAreaId);
+                        if (uploadArea) {
+                            uploadArea.style.opacity = '1';
+                            uploadArea.style.pointerEvents = 'auto';
+                        }
+                    }
                 };
                 reader.readAsDataURL(file);
+            } else {
+                console.warn('No file selected');
             }
         });
+        
+        // Store reference for potential future use
+        window[`${inputId}_input`] = newInput;
+    } else {
+        console.error('Input element not found:', inputId);
     }
 }
 
 function removeSectionImage(imageType) {
-    if (imageType === 'section2') {
+    if (imageType.startsWith('section2-')) {
+        const num = imageType.split('-')[1];
+        uploadedImages.section2[`image${num}`] = null;
+        const preview = document.getElementById(`section2-preview${num}`);
+        const upload = document.getElementById(`section2-upload${num}`);
+        if (preview) preview.classList.add('hidden');
+        if (upload) upload.classList.remove('hidden');
+        const input = document.getElementById(`section2-image${num}`);
+        if (input) input.value = '';
+        updatePreviewImage(imageType, null);
+    } else if (imageType === 'section2') {
         uploadedImages.section2 = null;
         const preview = document.getElementById('section2-preview');
         if (preview) preview.classList.add('hidden');
         const input = document.getElementById('section2-image');
         if (input) input.value = '';
+        // Show upload area again
+        const uploadArea = document.querySelector('#section2-image').closest('.border-dashed');
+        if (uploadArea) uploadArea.style.display = 'block';
         updatePreviewImage('section2', null);
     } else if (imageType.startsWith('section3-')) {
         const num = imageType.split('-')[1];
         uploadedImages.section3[`image${num}`] = null;
         const preview = document.getElementById(`section3-preview${num}`);
+        const upload = document.getElementById(`section3-upload${num}`);
         if (preview) preview.classList.add('hidden');
+        if (upload) upload.classList.remove('hidden');
         const input = document.getElementById(`section3-image${num}`);
         if (input) input.value = '';
         updatePreviewImage(imageType, null);
@@ -727,15 +1291,25 @@ function addMemoryToGrid(imageSrc) {
         </button>
     `;
     grid.appendChild(memoryDiv);
+    
+    // Also update preview
+    updateMemoriesInPreview();
 }
 
 function removeMemory(button) {
-    const memoryDiv = button.closest('.relative');
+    const memoryDiv = button.closest('.relative, .aspect-square');
     const img = memoryDiv.querySelector('img');
-    const index = Array.from(memoryDiv.parentElement.children).indexOf(memoryDiv);
+    if (!img || !img.src) return;
     
-    uploadedImages.memories.splice(index, 1);
-    memoryDiv.remove();
+    // Find the index of this memory in the array
+    const imageSrc = img.src;
+    const index = uploadedImages.memories.indexOf(imageSrc);
+    
+    if (index > -1) {
+        uploadedImages.memories.splice(index, 1);
+    }
+    
+    // Update the preview completely
     updateMemoriesInPreview();
 }
 
@@ -745,30 +1319,34 @@ function updateMemoriesInPreview() {
     
     const memoriesSection = previewContainer.querySelector('#memories-section');
     if (memoriesSection) {
-        // Clear placeholder if exists
-        const placeholder = memoriesSection.querySelector('.bg-gray-200, .bg-\\[\\#334155\\]');
-        if (placeholder) placeholder.remove();
-        
-        // Clear existing memories
+        // Clear ALL existing content including placeholders
         memoriesSection.innerHTML = '';
         
-        // Add all memories
-        uploadedImages.memories.forEach((memory, index) => {
-            const div = document.createElement('div');
-            div.className = 'aspect-square relative overflow-hidden rounded-2xl shadow-lg group';
-            const img = document.createElement('img');
-            img.src = memory;
-            img.alt = `Memory ${index + 1}`;
-            img.className = 'w-full h-full object-cover';
-            div.appendChild(img);
-            memoriesSection.appendChild(div);
-        });
-        
-        // If no memories, show placeholder
-        if (uploadedImages.memories.length === 0) {
+        // Only add memories if there are any uploaded
+        if (uploadedImages.memories && uploadedImages.memories.length > 0) {
+            uploadedImages.memories.forEach((memory, index) => {
+                const div = document.createElement('div');
+                div.className = 'aspect-square relative overflow-hidden rounded-xl shadow-xl border-2';
+                const img = document.createElement('img');
+                img.src = memory;
+                img.alt = `Memory ${index + 1}`;
+                img.className = 'w-full h-full object-cover';
+                div.appendChild(img);
+                memoriesSection.appendChild(div);
+            });
+        } else {
+            // Show placeholder only when no memories
             const placeholder = document.createElement('div');
-            placeholder.className = 'aspect-square bg-gray-200 dark:bg-[#334155] rounded-2xl flex items-center justify-center col-span-full';
-            placeholder.innerHTML = '<p class="text-gray-400 dark:text-[#64748b] text-sm text-center px-4">Add memories in the editor</p>';
+            placeholder.className = 'aspect-square bg-gradient-to-br rounded-xl flex items-center justify-center border-2 border-dashed col-span-full';
+            placeholder.style.borderColor = 'rgba(0, 0, 0, 0.1)';
+            placeholder.innerHTML = `
+                <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <p class="text-xs text-gray-400">Add memories</p>
+                </div>
+            `;
             memoriesSection.appendChild(placeholder);
         }
     }
@@ -780,63 +1358,137 @@ function removeImage(imageType) {
     if (preview) {
         preview.classList.add('hidden');
     }
-    const input = document.getElementById(imageType === 'hero' ? 'hero-image' : `image-${imageType.replace('image', '')}`);
-    if (input) {
-        input.value = '';
+    
+    // Show upload area again
+    if (imageType === 'hero') {
+        const uploadArea = document.querySelector('#hero-image').closest('.border-dashed');
+        if (uploadArea) uploadArea.style.display = 'block';
+        const input = document.getElementById('hero-image');
+        if (input) input.value = '';
+    } else {
+        const input = document.getElementById(imageType === 'hero' ? 'hero-image' : `image-${imageType.replace('image', '')}`);
+        if (input) {
+            input.value = '';
+        }
     }
     updatePreviewImage(imageType, null);
 }
 
 function updatePreviewImage(imageType, imageSrc) {
     const previewContainer = document.getElementById('template-preview');
-    if (!previewContainer) return;
+    if (!previewContainer) {
+        console.error('Preview container not found!');
+        return;
+    }
+    
+    console.log('updatePreviewImage called:', { imageType, hasImageSrc: !!imageSrc, previewContainer: !!previewContainer });
     
     if (imageType === 'hero') {
-        const img = previewContainer.querySelector('#hero-image-display') || previewContainer.querySelector('[data-image="hero"]');
-        if (img) {
-            if (imageSrc) {
-                img.src = imageSrc;
-                img.style.display = 'block';
-                img.style.opacity = '1';
-            }
-        }
-    } else if (imageType === 'section2') {
-        // Find section 2 image container
-        const img = previewContainer.querySelector('#section2-image-display');
-        const placeholder = previewContainer.querySelector('#section2-placeholder');
+        // Find all hero image instances (multiple templates in preview)
+        const imgs = previewContainer.querySelectorAll('#hero-image-display, [data-image="hero"], img[data-image="hero"]');
+        console.log('Updating hero image:', { imageType, imgCount: imgs.length, imageSrc: !!imageSrc });
         
-        if (img && placeholder) {
-            if (imageSrc) {
-                img.src = imageSrc;
-                img.classList.remove('hidden');
-                img.style.display = 'block';
-                img.style.zIndex = '10';
-                img.style.position = 'absolute';
-                placeholder.style.display = 'none';
-            } else {
-                img.classList.add('hidden');
-                img.style.display = 'none';
-                placeholder.style.display = 'block';
-            }
+        if (imgs.length > 0) {
+            imgs.forEach((img, index) => {
+                if (imageSrc) {
+                    img.src = imageSrc;
+                    img.style.display = 'block';
+                    img.style.opacity = '1';
+                    img.style.visibility = 'visible';
+                    img.classList.remove('hidden');
+                    console.log(`Hero image displayed in template ${index + 1}`, img);
+                } else {
+                    img.style.display = 'none';
+                    img.style.opacity = '0';
+                }
+            });
         } else {
-            console.log('Section 2 image elements not found:', { img: !!img, placeholder: !!placeholder });
+            console.warn('Hero image elements not found in preview. Searching for:', '#hero-image-display, [data-image="hero"]');
+            // Try to find any img with hero-related classes or IDs
+            const allImgs = previewContainer.querySelectorAll('img');
+            console.log('All images in preview:', allImgs.length);
         }
-    } else if (imageType.startsWith('section3-')) {
+    } else if (imageType.startsWith('section2-')) {
         const num = imageType.split('-')[1];
-        const img = previewContainer.querySelector(`#section3-image${num}-display`);
-        const placeholder = previewContainer.querySelector(`#section3-placeholder${num}`);
+        let imgs = previewContainer.querySelectorAll(`#section2-image${num}-display`);
+        let placeholders = previewContainer.querySelectorAll(`#section2-placeholder${num}`);
         
-        if (img && placeholder) {
-            if (imageSrc) {
-                img.src = imageSrc;
-                img.classList.remove('hidden');
-                img.style.display = 'block';
-                placeholder.style.display = 'none';
-            } else {
-                img.classList.add('hidden');
-                img.style.display = 'none';
-                placeholder.style.display = 'block';
-            }
+        if (imgs.length === 0) {
+            imgs = previewContainer.querySelectorAll(`[id*="section2-image${num}"][id*="display"]`);
+        }
+        if (placeholders.length === 0) {
+            placeholders = previewContainer.querySelectorAll(`[id*="section2-placeholder${num}"]`);
+        }
+        
+        console.log('Updating section2 image:', { imageType, num, imgCount: imgs.length, placeholderCount: placeholders.length, imageSrc: !!imageSrc });
+        
+        if (imgs.length > 0) {
+            imgs.forEach((img, index) => {
+                if (imageSrc) {
+                    img.src = imageSrc;
+                    img.classList.remove('hidden');
+                    img.style.display = 'block';
+                    img.style.opacity = '1';
+                    img.style.visibility = 'visible';
+                    img.style.zIndex = '10';
+                    img.style.position = 'absolute';
+                    console.log(`Section2 image ${num} displayed in template ${index + 1}`, img);
+                } else {
+                    img.classList.add('hidden');
+                    img.style.display = 'none';
+                }
+            });
+        }
+        
+        if (placeholders.length > 0) {
+            placeholders.forEach((placeholder, index) => {
+                if (imageSrc) {
+                    placeholder.style.display = 'none';
+                    placeholder.classList.add('hidden');
+                } else {
+                    placeholder.style.display = 'block';
+                    placeholder.classList.remove('hidden');
+                    console.log(`Section2 placeholder ${num} shown in template ${index + 1}`);
+                }
+            });
+        }
+    } else if (imageType.startsWith('section3-'))) {
+        const num = imageType.split('-')[1];
+        // Find all instances (since multiple templates exist in the preview)
+        const imgs = previewContainer.querySelectorAll(`#section3-image${num}-display`);
+        const placeholders = previewContainer.querySelectorAll(`#section3-placeholder${num}`);
+        
+        console.log('Updating section3 image:', { imageType, num, imgCount: imgs.length, placeholderCount: placeholders.length, imageSrc: !!imageSrc });
+        
+        if (imgs.length > 0 && placeholders.length > 0) {
+            // Update all instances
+            imgs.forEach((img, index) => {
+                if (imageSrc) {
+                    img.src = imageSrc;
+                    img.classList.remove('hidden');
+                    img.style.display = 'block';
+                    img.style.opacity = '1';
+                    img.style.zIndex = '10';
+                    img.style.position = 'absolute';
+                    console.log(`Section3 image ${num} displayed in template ${index + 1}`);
+                } else {
+                    img.classList.add('hidden');
+                    img.style.display = 'none';
+                }
+            });
+            
+            placeholders.forEach((placeholder, index) => {
+                if (imageSrc) {
+                    placeholder.style.display = 'none';
+                    placeholder.classList.add('hidden');
+                } else {
+                    placeholder.style.display = 'block';
+                    placeholder.classList.remove('hidden');
+                    console.log(`Section3 placeholder ${num} shown in template ${index + 1}`);
+                }
+            });
+        } else {
+            console.warn('Section3 image elements not found:', { num, imgCount: imgs.length, placeholderCount: placeholders.length });
         }
     }
 }

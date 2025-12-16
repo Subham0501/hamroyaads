@@ -51,7 +51,7 @@ $currentDate = date('F j, Y');
                 <div class="mb-6">
                     <span class="text-sm font-semibold" style="color: {{ $color }}80;">{{ $currentDate }}</span>
                 </div>
-                <p class="text-3xl md:text-4xl font-bold uppercase tracking-wide" style="color: {{ $color }};">
+                <p id="preview-subheading" class="text-3xl md:text-4xl font-bold uppercase tracking-wide" style="color: {{ $color }};">
                     {{ $templateData['defaults']['subheading'] ?? 'Celebrating You' }}
                 </p>
                 <p id="preview-message" class="text-2xl md:text-3xl max-w-3xl mx-auto" style="color: {{ $color }}90;">
@@ -128,8 +128,9 @@ $currentDate = date('F j, Y');
             </div>
             <div class="grid md:grid-cols-4 gap-4">
                 @for($i = 1; $i <= 4; $i++)
-                <div class="aspect-square rounded-xl overflow-hidden shadow-xl border-2 animate-scale-in" style="border-color: {{ $color }}40; animation-delay: {{ $i * 0.1 }}s;">
-                    <div class="w-full h-full bg-gradient-to-br flex items-center justify-center" style="background: linear-gradient(135deg, {{ $color }}30, {{ $color }}10);">
+                <div class="aspect-square rounded-xl overflow-hidden shadow-xl border-2 animate-scale-in relative" style="border-color: {{ $color }}40; animation-delay: {{ $i * 0.1 }}s;">
+                    <img id="section2-image{{ $i }}-display" src="" alt="Section 2 Image {{ $i }}" class="w-full h-full object-cover hidden">
+                    <div id="section2-placeholder{{ $i }}" class="w-full h-full bg-gradient-to-br flex items-center justify-center" style="background: linear-gradient(135deg, {{ $color }}30, {{ $color }}10);">
                         <svg class="w-12 h-12" style="color: {{ $color }}50;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>

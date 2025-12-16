@@ -22,10 +22,14 @@ class CustomizedTemplate extends Model
         'pin',
         'recipient_name',
         'status',
+        'page_name',
         'heading',
         'subheading',
         'message',
         'from',
+        'youtube_url',
+        'memory_date',
+        'heading_images',
         'section1_title',
         'section1_content',
         'section2_title',
@@ -52,7 +56,9 @@ class CustomizedTemplate extends Model
     {
         return [
             'images' => 'array',
+            'heading_images' => 'array',
             'custom_fields' => 'array',
+            'memory_date' => 'date',
         ];
     }
 
@@ -90,7 +96,9 @@ class CustomizedTemplate extends Model
 
         static::creating(function ($template) {
             if (empty($template->slug)) {
-                $template->slug = static::generateSlug($template->heading, $template->user_id, $template->template);
+                // Use page_name if available, otherwise fall back to heading
+                $slugSource = $template->page_name ?? $template->heading ?? 'untitled-template';
+                $template->slug = static::generateSlug($slugSource, $template->user_id, $template->template);
             }
         });
     }

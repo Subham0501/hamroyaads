@@ -35,16 +35,23 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
- 
+        // Auto-login after registration
+        Auth::login($user);
 
-        return redirect()->route('login')->with('success', 'Registration successful! Please log in to continue.');
+        return redirect()->route('create')->with('success', 'Registration successful! Choose a template to get started.');
     }
 
     /**
      * Show the login form.
      */
-    public function showLoginForm()
+    public function showLoginForm(Request $request)
     {
+        // Store intended URL if coming from /create
+        if ($request->has('intended') || $request->session()->has('intended')) {
+            $intended = $request->get('intended', $request->session()->get('intended', '/create'));
+            $request->session()->put('url.intended', $intended);
+        }
+        
         return view('auth.login');
     }
 
@@ -72,7 +79,16 @@ class AuthController extends Controller
                 return redirect('/admin/templates');
             }
 
-            return redirect()->intended('/');
+            // Check if there's an intended URL, otherwise redirect to /create
+            $intended = $request->session()->get('url.intended', '/create');
+            $request->session()->forget('url.intended');
+            
+            // If intended was /create or login page, go to /create
+            if ($intended === '/create' || $intended === route('login')) {
+                return redirect('/create');
+            }
+            
+            return redirect()->intended('/create');
         }
 
         throw ValidationException::withMessages([

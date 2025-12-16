@@ -6,10 +6,7 @@
         <!-- Header -->
         <div class="text-center">
             <a href="/" class="inline-block mb-6">
-                <span class="text-3xl font-extrabold tracking-tight">
-                    <span class="text-[#ff6b6b]">Hamro</span>
-                    <span class="text-[#4ecdc4]">Yaad</span>
-                </span>
+                <img src="{{ asset('assets/logo.png') }}" alt="Hamro Yaad" class="h-20 md:h-24 w-auto mx-auto">
             </a>
             <h2 class="text-4xl font-black text-gray-900 dark:text-white mb-2">Create Account</h2>
             <p class="text-gray-600 dark:text-[#cbd5e1]">Sign up to start creating your custom gift websites</p>

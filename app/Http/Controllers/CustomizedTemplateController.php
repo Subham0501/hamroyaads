@@ -11,7 +11,286 @@ use Illuminate\Support\Str;
 class CustomizedTemplateController extends Controller
 {
     /**
-     * Store a newly created customized template.
+     * Save draft incrementally (without PIN/recipient requirement).
+     */
+    public function saveDraft(Request $request)
+    {
+        \Log::info('Saving draft template', ['user_id' => Auth::id()]);
+        
+        try {
+            // Validate draft_id separately to handle invalid IDs gracefully
+            $draftId = $request->input('draft_id');
+            if ($draftId) {
+                // Check if draft exists and belongs to user
+                $existingDraft = CustomizedTemplate::where('id', $draftId)
+                    ->where('user_id', Auth::id())
+                    ->where('status', 'draft')
+                    ->first();
+                
+                // If draft doesn't exist or doesn't belong to user, set to null
+                if (!$existingDraft) {
+                    $draftId = null;
+                    \Log::warning('Invalid draft_id provided, will create new draft', ['provided_id' => $request->input('draft_id')]);
+                }
+            }
+            
+            $validated = $request->validate([
+                'template' => 'nullable|string',
+                'page_name' => 'nullable|string|max:255',
+                'heading' => 'nullable|string|max:255',
+                'subheading' => 'nullable|string|max:255',
+                'message' => 'nullable|string',
+                'from' => 'nullable|string|max:255',
+                'youtube_url' => 'nullable|url|max:500',
+                'memory_date' => 'nullable|date',
+                'heading_images' => 'nullable|array|max:50',
+                'heading_images.*' => 'nullable|string',
+                'theme_color' => 'nullable|string|max:7',
+                'bg_color' => 'nullable|string|max:7',
+                'images' => 'nullable|array',
+                'images.memories' => 'nullable|array|max:50',
+                'images.memories.*' => 'nullable|string',
+            ]);
+            
+            // Set validated draft_id (null if invalid)
+            $validated['draft_id'] = $draftId;
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Draft validation failed', ['errors' => $e->errors()]);
+            return response()->json(['success' => false, 'errors' => $e->errors()], 422);
+        }
+        
+        // Set default template if not provided
+        if (empty($validated['template'])) {
+            $validated['template'] = 'default';
+        }
+        
+        // Handle heading images uploads (base64 images)
+        if ($request->has('heading_images') && is_array($request->heading_images) && !empty($request->heading_images)) {
+            try {
+                \Log::info('Processing heading images', [
+                    'count' => count($request->heading_images),
+                    'draft_id' => $draftId,
+                    'user_id' => Auth::id()
+                ]);
+                
+                // Filter out already saved paths (not base64) and remove duplicates
+                $newImages = [];
+                $existingImages = [];
+                $seenUrls = []; // Track URLs to prevent duplicates
+                
+                foreach ($request->heading_images as $image) {
+                    if (is_string($image) && Str::startsWith($image, 'data:image')) {
+                        // New base64 image - convert to file
+                        $newImages[] = $image;
+                    } elseif (is_string($image) && (Str::startsWith($image, '/storage') || Str::startsWith($image, 'http'))) {
+                        // Already saved path - keep it, but skip duplicates
+                        if (!in_array($image, $seenUrls, true)) {
+                            $existingImages[] = $image;
+                            $seenUrls[] = $image;
+                        }
+                    }
+                }
+                
+                \Log::info('Heading images filtered', [
+                    'new_base64_count' => count($newImages),
+                    'existing_paths_count' => count($existingImages)
+                ]);
+                
+                // Convert new base64 images to file paths
+                if (!empty($newImages)) {
+                    \Log::info('Converting base64 images to files...');
+                    $convertedImages = $this->handleBase64Images($newImages, Auth::id(), 'heading_images');
+                    \Log::info('Images converted successfully', ['count' => count($convertedImages)]);
+                    $validated['heading_images'] = array_merge($existingImages, $convertedImages);
+                } else {
+                    $validated['heading_images'] = $existingImages;
+                }
+                
+                \Log::info('Heading images processed', ['total_count' => count($validated['heading_images'])]);
+            } catch (\Exception $e) {
+                \Log::error('Heading images upload error: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+                // Keep existing images if update fails
+                if (!isset($validated['heading_images'])) {
+                    $validated['heading_images'] = [];
+                }
+            }
+        }
+        
+        // Handle additional images uploads (base64 images)
+        if ($request->has('images') && is_array($request->images) && !empty($request->images)) {
+            try {
+                // Filter out already saved paths (not base64) and remove duplicates
+                $newImages = [];
+                $existingImages = [];
+                $seenUrls = []; // Track URLs to prevent duplicates
+                
+                foreach ($request->images as $image) {
+                    if (is_string($image) && Str::startsWith($image, 'data:image')) {
+                        // New base64 image - convert to file
+                        $newImages[] = $image;
+                    } elseif (is_string($image) && (Str::startsWith($image, '/storage') || Str::startsWith($image, 'http'))) {
+                        // Already saved path - keep it, but skip duplicates
+                        if (!in_array($image, $seenUrls, true)) {
+                            $existingImages[] = $image;
+                            $seenUrls[] = $image;
+                        }
+                    }
+                }
+                
+                // Convert new base64 images to file paths
+                if (!empty($newImages)) {
+                    $convertedImages = $this->handleBase64Images($newImages, Auth::id(), 'images');
+                    $validated['images'] = ['memories' => array_merge($existingImages, $convertedImages)];
+                } else {
+                    $validated['images'] = ['memories' => $existingImages];
+                }
+            } catch (\Exception $e) {
+                \Log::error('Image upload error: ' . $e->getMessage());
+                // Keep existing images if update fails
+                if (!isset($validated['images'])) {
+                    $validated['images'] = [];
+                }
+            }
+        }
+        
+        $validated['user_id'] = Auth::id();
+        $validated['status'] = 'draft';
+        
+        // If draft_id exists and is valid, update it; otherwise create new
+        $draftId = $validated['draft_id'] ?? null;
+        if (!empty($draftId)) {
+            $customizedTemplate = CustomizedTemplate::where('id', $draftId)
+                ->where('user_id', Auth::id())
+                ->where('status', 'draft')
+                ->first();
+            
+            if ($customizedTemplate) {
+                unset($validated['draft_id']);
+                
+                // Images are already processed above - they contain both existing paths and newly converted paths
+                // The frontend sends the complete list, so we just use what's in $validated
+                // If images weren't provided in request OR if empty arrays were sent, keep existing ones
+                if (!isset($validated['heading_images']) || (is_array($validated['heading_images']) && empty($validated['heading_images']))) {
+                    if ($customizedTemplate->heading_images && is_array($customizedTemplate->heading_images) && count($customizedTemplate->heading_images) > 0) {
+                        $validated['heading_images'] = $customizedTemplate->heading_images;
+                        \Log::info('Preserving existing heading_images', ['count' => count($validated['heading_images'])]);
+                    }
+                }
+                if (!isset($validated['images']) || (is_array($validated['images']) && empty($validated['images']))) {
+                    if ($customizedTemplate->images && is_array($customizedTemplate->images) && isset($customizedTemplate->images['memories']) && count($customizedTemplate->images['memories']) > 0) {
+                        $validated['images'] = $customizedTemplate->images;
+                        \Log::info('Preserving existing images', ['count' => count($validated['images']['memories'])]);
+                    }
+                }
+                
+                // Generate slug if page_name changed and slug doesn't exist
+                if (!empty($validated['page_name']) && empty($customizedTemplate->slug)) {
+                    $validated['slug'] = CustomizedTemplate::generateSlug($validated['page_name'], Auth::id(), $validated['template']);
+                }
+                
+                $customizedTemplate->update($validated);
+                \Log::info('Draft updated', [
+                    'template_id' => $customizedTemplate->id,
+                    'heading_images_count' => is_array($validated['heading_images'] ?? null) ? count($validated['heading_images']) : 0,
+                    'images_count' => isset($validated['images']['memories']) ? count($validated['images']['memories']) : 0,
+                ]);
+            } else {
+                unset($validated['draft_id']);
+                if (!empty($validated['page_name'])) {
+                    $validated['slug'] = CustomizedTemplate::generateSlug($validated['page_name'], Auth::id(), $validated['template']);
+                }
+                $customizedTemplate = CustomizedTemplate::create($validated);
+                \Log::info('Draft created (fallback)', ['template_id' => $customizedTemplate->id]);
+            }
+        } else {
+            // Before creating new draft, check if there's an existing draft for this user/page_name
+            // This prevents creating duplicates when draft_id is not provided
+            $existingDraft = null;
+            if (!empty($validated['page_name'])) {
+                // Try to find existing draft with same page_name and user
+                $existingDraft = CustomizedTemplate::where('user_id', Auth::id())
+                    ->where('page_name', $validated['page_name'])
+                    ->where('status', 'draft')
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                
+                if ($existingDraft) {
+                    \Log::info('Found existing draft, updating instead of creating new', [
+                        'existing_id' => $existingDraft->id,
+                        'page_name' => $validated['page_name']
+                    ]);
+                    
+                    // Update existing draft instead of creating new
+                    unset($validated['draft_id']);
+                    
+                    // Merge images if provided
+                    if (isset($validated['heading_images']) && is_array($validated['heading_images'])) {
+                        // Use new images
+                    } elseif ($existingDraft->heading_images) {
+                        $validated['heading_images'] = $existingDraft->heading_images;
+                    }
+                    
+                    if (isset($validated['images']) && is_array($validated['images'])) {
+                        // Use new images
+                    } elseif ($existingDraft->images) {
+                        $validated['images'] = $existingDraft->images;
+                    }
+                    
+                    $existingDraft->update($validated);
+                    $customizedTemplate = $existingDraft;
+                    
+                    \Log::info('Draft updated (found existing)', [
+                        'template_id' => $customizedTemplate->id,
+                        'heading_images_count' => is_array($validated['heading_images'] ?? null) ? count($validated['heading_images']) : 0,
+                        'images_count' => isset($validated['images']['memories']) ? count($validated['images']['memories']) : 0,
+                    ]);
+                }
+            }
+            
+            // Only create new draft if no existing draft was found
+            if (!$existingDraft) {
+                // Create new draft - allow creation even without page_name if images exist
+                $hasImages = (!empty($validated['heading_images']) && is_array($validated['heading_images']) && count($validated['heading_images']) > 0) ||
+                             (!empty($validated['images']['memories']) && is_array($validated['images']['memories']) && count($validated['images']['memories']) > 0);
+                
+                // If no page_name but we have images, use a temporary name
+                if (empty($validated['page_name']) && $hasImages) {
+                    $validated['page_name'] = 'draft-' . Auth::id() . '-' . time();
+                    \Log::info('Creating draft with temporary page_name for images', ['user_id' => Auth::id()]);
+                }
+                
+                if (!empty($validated['page_name'])) {
+                    $validated['slug'] = CustomizedTemplate::generateSlug($validated['page_name'], Auth::id(), $validated['template']);
+                }
+                $customizedTemplate = CustomizedTemplate::create($validated);
+                \Log::info('Draft created (new)', [
+                    'template_id' => $customizedTemplate->id,
+                    'has_images' => $hasImages,
+                    'heading_images_count' => is_array($validated['heading_images'] ?? null) ? count($validated['heading_images']) : 0,
+                    'images_count' => isset($validated['images']['memories']) ? count($validated['images']['memories']) : 0,
+                ]);
+            }
+        }
+        
+        \Log::info('✅ Draft save completed successfully', [
+            'draft_id' => $customizedTemplate->id,
+            'heading_images_count' => is_array($customizedTemplate->heading_images ?? null) ? count($customizedTemplate->heading_images) : 0,
+            'images_count' => isset($customizedTemplate->images['memories']) ? count($customizedTemplate->images['memories']) : 0,
+            'heading_images' => $customizedTemplate->heading_images ?? [],
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'draft_id' => $customizedTemplate->id,
+            'slug' => $customizedTemplate->slug,
+            'data' => $customizedTemplate,
+        ]);
+    }
+
+    /**
+     * Store a newly created customized template (final save with PIN).
      */
     public function store(Request $request)
     {
@@ -24,11 +303,16 @@ class CustomizedTemplateController extends Controller
         
         try {
         $validated = $request->validate([
-            'template' => 'required|string',
+            'template' => 'nullable|string',
+            'page_name' => 'required|string|max:255',
             'heading' => 'nullable|string|max:255',
             'subheading' => 'nullable|string|max:255',
             'message' => 'nullable|string',
             'from' => 'nullable|string|max:255',
+            'youtube_url' => 'nullable|url|max:500',
+            'memory_date' => 'nullable|date',
+            'heading_images' => 'nullable|array|max:50',
+            'heading_images.*' => 'nullable|string',
             'section1_title' => 'nullable|string|max:255',
             'section1_content' => 'nullable|string',
             'section2_title' => 'nullable|string|max:255',
@@ -43,6 +327,8 @@ class CustomizedTemplateController extends Controller
             'bg_color' => 'nullable|string|max:7',
             'bg_style' => 'nullable|string|in:gradient,solid,image',
             'images' => 'nullable|array',
+            'images.memories' => 'nullable|array|max:50',
+            'images.memories.*' => 'nullable|string',
             'status' => 'nullable|string|in:draft,published,archived',
             'slug' => 'nullable|string|max:255',
             'recipient_name' => 'required|string|max:255',
@@ -63,44 +349,91 @@ class CustomizedTemplateController extends Controller
             throw $e;
             }
             
-        // Don't generate slug - admin will approve and generate slug later
-        // Slug will be null for draft templates
-
-        // Handle image uploads if provided
-        if ($request->has('images') && is_array($request->images) && !empty($request->images)) {
-            try {
-                $validated['images'] = $this->handleImageUploads($request->images, Auth::id());
-            } catch (\Exception $e) {
-                \Log::error('Image upload error: ' . $e->getMessage());
-             
-                $validated['images'] = [];
-            }
-        } else {
-            $validated['images'] = [];
+        // Set default template if not provided
+        if (empty($validated['template'])) {
+            $validated['template'] = 'default';
         }
 
         $validated['user_id'] = Auth::id();
-        // Always save as draft - admin will approve later
-        $validated['status'] = 'draft';
-        // Don't set slug - will be generated when admin approves
-        unset($validated['slug']);
+        $validated['status'] = 'draft'; // Keep as draft even after PIN
+        
+        // Check if draft_id exists - update existing draft instead of creating new
+        $draftId = $request->input('draft_id');
+        $existingDraft = null;
+        if ($draftId) {
+            $existingDraft = CustomizedTemplate::where('id', $draftId)
+                ->where('user_id', Auth::id())
+                ->where('status', 'draft')
+                ->first();
+        }
 
-        \Log::info('Creating customized template', [
+        // Handle heading images uploads (base64 images)
+        if ($request->has('heading_images') && is_array($request->heading_images) && !empty($request->heading_images)) {
+            try {
+                $validated['heading_images'] = $this->handleBase64Images($request->heading_images, Auth::id(), 'heading_images');
+            } catch (\Exception $e) {
+                \Log::error('Heading images upload error: ' . $e->getMessage());
+                // Preserve existing images if available
+                $validated['heading_images'] = $existingDraft && $existingDraft->heading_images ? $existingDraft->heading_images : [];
+            }
+        } else {
+            // Preserve existing images from draft if not in request
+            $validated['heading_images'] = $existingDraft && $existingDraft->heading_images ? $existingDraft->heading_images : [];
+        }
+
+        // Handle additional images uploads (base64 images)
+        if ($request->has('images') && is_array($request->images) && !empty($request->images)) {
+            try {
+                // Store additional images in images array
+                $validated['images'] = ['memories' => $this->handleBase64Images($request->images, Auth::id(), 'images')];
+            } catch (\Exception $e) {
+                \Log::error('Image upload error: ' . $e->getMessage());
+                // Preserve existing images if available
+                $validated['images'] = $existingDraft && $existingDraft->images ? $existingDraft->images : [];
+            }
+        } else {
+            // Preserve existing images from draft if not in request
+            $validated['images'] = $existingDraft && $existingDraft->images ? $existingDraft->images : [];
+        }
+        
+        if ($existingDraft) {
+            // Update existing draft with PIN and recipient
+            $existingDraft->update($validated);
+            \Log::info('Updating existing draft with PIN', [
+                'template_id' => $existingDraft->id,
+                'recipient_name' => $validated['recipient_name'] ?? 'N/A',
+                'heading_images_count' => is_array($validated['heading_images']) ? count($validated['heading_images']) : 0,
+            ]);
+            $customizedTemplate = $existingDraft;
+        } else {
+            // Draft not found or no draft_id, create new
+            if (!empty($validated['page_name'])) {
+                $validated['slug'] = CustomizedTemplate::generateSlug($validated['page_name'], Auth::id(), $validated['template']);
+            }
+            $customizedTemplate = CustomizedTemplate::create($validated);
+            \Log::info('Creating new customized template', [
+                'template_id' => $customizedTemplate->id,
             'user_id' => $validated['user_id'],
             'recipient_name' => $validated['recipient_name'] ?? 'N/A',
             'status' => $validated['status'],
         ]);
-
-        $customizedTemplate = CustomizedTemplate::create($validated);
+        }
 
         \Log::info('Template created successfully', [
             'template_id' => $customizedTemplate->id,
             'slug' => $customizedTemplate->slug,
+            'page_name' => $customizedTemplate->page_name,
+            'status' => $customizedTemplate->status,
         ]);
+
+        // Generate URL - use the slug directly
+        $url = url('/' . $customizedTemplate->slug);
 
         return response()->json([
             'success' => true,
-            'message' => 'Template submitted successfully! It will be reviewed by admin before publishing.',
+            'message' => 'Your memory has been created successfully!',
+            'url' => $url,
+            'slug' => $customizedTemplate->slug,
             'data' => $customizedTemplate,
         ]);
     }
@@ -155,61 +488,51 @@ class CustomizedTemplateController extends Controller
      */
     public function show(Request $request, $slug, $templates = null)
     {
+        \Log::info('Accessing template with slug', ['slug' => $slug]);
+        
         $customizedTemplate = CustomizedTemplate::where('slug', $slug)
-            ->where('status', 'published')
+            ->where('status', 'published') // Only allow published templates
             ->with('user')
-            ->firstOrFail();
+            ->first();
+            
+        if (!$customizedTemplate) {
+            \Log::error('Template not found or not published', [
+                'slug' => $slug,
+                'all_slugs' => CustomizedTemplate::pluck('slug')->toArray()
+            ]);
+            abort(404, 'Memory page not found');
+        }
+
+        \Log::info('Template found', [
+            'id' => $customizedTemplate->id,
+            'slug' => $customizedTemplate->slug,
+            'status' => $customizedTemplate->status,
+            'recipient_name' => $customizedTemplate->recipient_name,
+        ]);
 
         // Check if PIN is verified in session
         $pinVerified = $request->session()->get("template_pin_verified_{$slug}", false);
         
+        \Log::info('PIN verification status', [
+            'slug' => $slug,
+            'pin_verified' => $pinVerified,
+        ]);
+        
         if (!$pinVerified) {
             // Show PIN entry page
+            \Log::info('Showing PIN verification page');
             return view('templates.pin-verification', [
                 'slug' => $slug,
                 'recipient_name' => $customizedTemplate->recipient_name,
             ]);
         }
 
-        // Get template configurations
-        if ($templates === null) {
-            $templates = $this->getTemplateConfigs();
-        }
-        
-        $templateData = $templates[$customizedTemplate->template] ?? null;
-        
-        if (!$templateData) {
-            abort(404, 'Template configuration not found');
-        }
+        \Log::info('PIN verified, showing published template');
 
-        // Ensure section defaults
-        $templateData = $this->ensureSectionDefaults($templateData);
-
-        // Override with customized data
-        $templateData['defaults'] = array_merge($templateData['defaults'] ?? [], [
-            'heading' => $customizedTemplate->heading,
-            'subheading' => $customizedTemplate->subheading,
-            'message' => $customizedTemplate->message,
-            'from' => $customizedTemplate->from,
-            'section1_title' => $customizedTemplate->section1_title,
-            'section1_content' => $customizedTemplate->section1_content,
-            'section2_title' => $customizedTemplate->section2_title,
-            'section2_content' => $customizedTemplate->section2_content,
-            'section3_title' => $customizedTemplate->section3_title,
-            'section3_content' => $customizedTemplate->section3_content,
-            'section4_title' => $customizedTemplate->section4_title,
-            'section4_content' => $customizedTemplate->section4_content,
-            'section5_title' => $customizedTemplate->section5_title,
-            'section5_content' => $customizedTemplate->section5_content,
-        ]);
-
-        // Override theme color
-        $templateData['color'] = $customizedTemplate->theme_color;
-
+        // Directly return the published view with the customized template
+        // We don't need template configs since we're using a custom published view
         return view('templates.published', [
             'customizedTemplate' => $customizedTemplate,
-            'templateData' => $templateData,
-            'template' => $customizedTemplate->template,
         ]);
     }
 
@@ -223,18 +546,42 @@ class CustomizedTemplateController extends Controller
         ]);
 
         $customizedTemplate = CustomizedTemplate::where('slug', $slug)
-            ->where('status', 'published')
+            ->where('status', 'published') // Only allow published templates
             ->firstOrFail();
 
         if ($customizedTemplate->pin === $request->pin) {
             // Store PIN verification in session
             $request->session()->put("template_pin_verified_{$slug}", true);
             
-            // Redirect to the template view
-            return redirect()->route('templates.show', $slug);
+            // Redirect to gift box animation page
+            return redirect()->route('templates.gift-box', $slug);
         }
 
         return back()->with('error', 'Invalid PIN. Please try again.');
+    }
+
+    /**
+     * Show gift box animation page after PIN verification.
+     */
+    public function showGiftBox(Request $request, $slug)
+    {
+        $customizedTemplate = CustomizedTemplate::where('slug', $slug)
+            ->where('status', 'published') // Only allow published templates
+            ->firstOrFail();
+        
+        // Check if PIN is verified
+        $pinVerified = $request->session()->get("template_pin_verified_{$slug}", false);
+        
+        if (!$pinVerified) {
+            // If PIN not verified, redirect to PIN entry
+            return redirect()->route('templates.show', $slug);
+        }
+        
+        return view('templates.gift-box', [
+            'slug' => $slug,
+            'recipient_name' => $customizedTemplate->recipient_name,
+            'theme_color' => $customizedTemplate->theme_color ?? '#ff6b6b',
+        ]);
     }
 
     /**
@@ -281,6 +628,53 @@ class CustomizedTemplateController extends Controller
         }
         
         return [];
+    }
+
+    /**
+     * Get a single customized template by ID (for API).
+     */
+    public function getTemplate($id)
+    {
+        $template = CustomizedTemplate::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Ensure heading_images is always an array (handle JSON string case)
+        $headingImages = $template->heading_images;
+        if (is_string($headingImages)) {
+            $headingImages = json_decode($headingImages, true) ?? [];
+        }
+        if (!is_array($headingImages)) {
+            $headingImages = [];
+        }
+        // Set the modified array back to the model
+        $template->setAttribute('heading_images', $headingImages);
+
+        // Ensure images.memories is always an array
+        $images = $template->images;
+        if (is_string($images)) {
+            $images = json_decode($images, true) ?? [];
+        }
+        if (!is_array($images)) {
+            $images = [];
+        }
+        if (!isset($images['memories']) || !is_array($images['memories'])) {
+            $images['memories'] = [];
+        }
+        // Set the modified array back to the model
+        $template->setAttribute('images', $images);
+
+        \Log::info('📥 getTemplate called', [
+            'template_id' => $template->id,
+            'heading_images_count' => count($headingImages),
+            'heading_images' => $headingImages,
+            'images_count' => count($images['memories'] ?? []),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $template,
+        ]);
     }
 
     /**
@@ -371,7 +765,69 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
-     * Save a base64 encoded image to storage.
+     * Handle array of base64 images.
+     */
+    private function handleBase64Images(array $images, int $userId, string $type): array
+    {
+        // Enforce maximum 50 images limit
+        if (count($images) > 50) {
+            \Log::warning('Image limit exceeded', ['count' => count($images), 'type' => $type]);
+            throw new \Exception('Maximum 50 images allowed. Please remove some images.');
+        }
+        
+        $uploadedImages = [];
+        $seenBase64 = []; // Track base64 images to prevent duplicates
+        $seenUrls = []; // Track URLs to prevent duplicates
+        
+        foreach ($images as $index => $image) {
+            if (is_string($image) && Str::startsWith($image, 'data:image')) {
+                // Create a hash of the base64 content to detect duplicates
+                $base64Hash = md5($image);
+                
+                // Skip if we've already processed this exact base64 image
+                if (isset($seenBase64[$base64Hash])) {
+                    \Log::info('Skipping duplicate base64 image', [
+                        'type' => $type,
+                        'index' => $index,
+                        'hash' => substr($base64Hash, 0, 8)
+                    ]);
+                    $uploadedImages[] = $seenBase64[$base64Hash]; // Use the already uploaded URL
+                    continue;
+                }
+                
+                $uploadedUrl = $this->saveBase64Image($image, $userId, "{$type}-{$index}");
+                if (!empty($uploadedUrl)) {
+                    $uploadedImages[] = $uploadedUrl;
+                    $seenBase64[$base64Hash] = $uploadedUrl; // Store for duplicate detection
+                }
+            } elseif (is_string($image)) {
+                // Skip duplicate URLs
+                if (in_array($image, $seenUrls, true)) {
+                    \Log::info('Skipping duplicate URL', [
+                        'type' => $type,
+                        'index' => $index,
+                        'url' => substr($image, 0, 50) . '...'
+                    ]);
+                    continue;
+                }
+                
+                $uploadedImages[] = $image; // Already a path
+                $seenUrls[] = $image;
+            }
+        }
+
+        \Log::info('Images processed with duplicate detection', [
+            'type' => $type,
+            'input_count' => count($images),
+            'output_count' => count($uploadedImages),
+            'duplicates_skipped' => count($images) - count($uploadedImages)
+        ]);
+
+        return $uploadedImages;
+    }
+
+    /**
+     * Save a base64 encoded image to storage (Cloudflare R2).
      */
     private function saveBase64Image(string $base64Image, int $userId, string $prefix): string
     {
@@ -388,22 +844,74 @@ class CustomizedTemplateController extends Controller
             $filename = $prefix . '_' . time() . '_' . Str::random(10) . '.' . $extension;
             $path = "templates/{$userId}/{$filename}";
             
-            // Ensure directory exists
+            // Determine which disk to use (Cloudflare R2 if configured, otherwise public)
+            $disk = env('CLOUDFLARE_R2_BUCKET') ? 'cloudflare' : 'public';
+            
+            // For Cloudflare R2, no need to create directories (S3-compatible)
+            if ($disk === 'cloudflare') {
+                // Save directly to Cloudflare R2
+                $saved = Storage::disk('cloudflare')->put($path, $imageData, 'public');
+                
+                if ($saved) {
+                    // Verify file was actually saved
+                    $fileExists = Storage::disk('cloudflare')->exists($path);
+                    
+                    if (!$fileExists) {
+                        \Log::error('File was not found after saving to Cloudflare R2', ['path' => $path]);
+                        return '';
+                    }
+                    
+                    // Get the public URL from Cloudflare R2
+                    // Use the configured R2 URL from .env, or generate from endpoint
+                    $r2Url = env('CLOUDFLARE_R2_URL');
+                    if ($r2Url) {
+                        // Ensure URL doesn't have trailing slash
+                        $r2Url = rtrim($r2Url, '/');
+                        // URL encode the path segments (like the example: WhatsApp%20Image...)
+                        // Split path by / and encode each segment
+                        $pathSegments = explode('/', $path);
+                        $encodedSegments = array_map('rawurlencode', $pathSegments);
+                        $encodedPath = implode('/', $encodedSegments);
+                        // Build full URL: R2_URL + / + encoded_path
+                        $url = $r2Url . '/' . $encodedPath;
+                    } else {
+                        // Fallback to Storage::url() method
+                        $url = Storage::disk('cloudflare')->url($path);
+                    }
+                    
+                    // Test if URL is accessible (optional check)
+                    $fileSize = Storage::disk('cloudflare')->size($path);
+                    
+                    \Log::info('Image saved to Cloudflare R2 successfully', [
+                        'path' => $path,
+                        'encoded_path' => $encodedPath ?? $path,
+                        'url' => $url,
+                        'r2_url_config' => env('CLOUDFLARE_R2_URL'),
+                        'file_exists' => $fileExists,
+                        'file_size' => $fileSize
+                    ]);
+                    return $url;
+                } else {
+                    \Log::error('Failed to save image to Cloudflare R2', ['path' => $path]);
+                    return '';
+                }
+            } else {
+                // Fallback to local storage
             $directory = "templates/{$userId}";
             if (!Storage::disk('public')->exists($directory)) {
                 Storage::disk('public')->makeDirectory($directory);
             }
             
-            // Save the image
             $saved = Storage::disk('public')->put($path, $imageData);
             
             if ($saved) {
                 $url = Storage::url($path);
-                \Log::info('Image saved successfully', ['path' => $path, 'url' => $url]);
+                    \Log::info('Image saved to local storage successfully', ['path' => $path, 'url' => $url]);
                 return $url;
             } else {
-                \Log::error('Failed to save image', ['path' => $path]);
+                    \Log::error('Failed to save image to local storage', ['path' => $path]);
                 return '';
+                }
             }
         }
 
@@ -430,13 +938,80 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
-     * Delete a single image file.
+     * Delete a single image file (supports both Cloudflare R2 and local storage).
      */
     private function deleteImageFile(string $path): void
     {
-        if (Str::startsWith($path, '/storage/')) {
+        // Check if it's a Cloudflare R2 URL
+        $cloudflareUrl = env('CLOUDFLARE_R2_URL');
+        if ($cloudflareUrl && Str::startsWith($path, $cloudflareUrl)) {
+            // Extract the path from the full URL
+            $relativePath = Str::after($path, $cloudflareUrl . '/');
+            Storage::disk('cloudflare')->delete($relativePath);
+            \Log::info('Deleted image from Cloudflare R2', ['path' => $relativePath]);
+        } elseif (Str::startsWith($path, '/storage/')) {
+            // Local storage path
             $relativePath = Str::after($path, '/storage/');
             Storage::disk('public')->delete($relativePath);
+            \Log::info('Deleted image from local storage', ['path' => $relativePath]);
+        } elseif (Str::startsWith($path, 'http')) {
+            // Try to extract path from any HTTP URL
+            $parsedUrl = parse_url($path);
+            if (isset($parsedUrl['path'])) {
+                $relativePath = ltrim($parsedUrl['path'], '/');
+                // Try Cloudflare R2 first if configured
+                if (env('CLOUDFLARE_R2_BUCKET')) {
+                    Storage::disk('cloudflare')->delete($relativePath);
+                } else {
+                    // Fallback to local storage
+                    Storage::disk('public')->delete($relativePath);
+                }
+            }
+        }
+    }
+
+    /**
+     * Delete a single image via API (for frontend use).
+     */
+    public function deleteImage(Request $request)
+    {
+        $request->validate([
+            'image_url' => 'required|string',
+        ]);
+
+        $imageUrl = $request->input('image_url');
+        
+        // Only allow deletion if user is authenticated
+        if (!Auth::check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        try {
+            $this->deleteImageFile($imageUrl);
+            
+            \Log::info('Image deleted via API', [
+                'user_id' => Auth::id(),
+                'image_url' => $imageUrl,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to delete image via API', [
+                'user_id' => Auth::id(),
+                'image_url' => $imageUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete image: ' . $e->getMessage(),
+            ], 500);
         }
     }
 

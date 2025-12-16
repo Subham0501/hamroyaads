@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomizedTemplateController;
 
@@ -320,6 +322,21 @@ Route::get('/', function () use ($templates) {
     return view('welcome', ['templates' => $templatesWithDefaults]);
 });
 
+// Create route - Template selection page (requires authentication)
+Route::get('/create', function (Request $request) use ($templates) {
+    if (!Auth::check()) {
+        $request->session()->put('url.intended', '/create');
+        return redirect()->route('login');
+    }
+    
+    // Ensure all templates have section defaults for preview cards
+    $templatesWithDefaults = [];
+    foreach ($templates as $key => $template) {
+        $templatesWithDefaults[$key] = ensureSectionDefaults($template);
+    }
+    return view('create', ['templates' => $templatesWithDefaults]);
+})->name('create');
+
 // Template routes
 Route::get('/template/{template}/preview', function ($template) use ($templates) {
     $templateData = $templates[$template] ?? $templates['fathersday-1'];
@@ -330,7 +347,26 @@ Route::get('/template/{template}/preview', function ($template) use ($templates)
 Route::get('/template/{template}/customize', function ($template) use ($templates) {
     $templateData = $templates[$template] ?? $templates['fathersday-1'];
     $templateData = ensureSectionDefaults($templateData);
-    return view('templates.customize', ['template' => $template, 'templateData' => $templateData]);
+    
+    // Try to load template-specific customization file first
+    // Format: templates.customize.{category}.{template} or templates.customize.{template}
+    $category = $templateData['category'] ?? 'default';
+    $customizeView = null;
+    
+    // Try template-specific file first (e.g., templates.customize.birthday.birthday-1)
+    if (view()->exists("templates.customize.{$category}.{$template}")) {
+        $customizeView = "templates.customize.{$category}.{$template}";
+    }
+    // Try direct template file (e.g., templates.customize.birthday-1)
+    elseif (view()->exists("templates.customize.{$template}")) {
+        $customizeView = "templates.customize.{$template}";
+    }
+    // Fall back to default
+    else {
+        $customizeView = 'templates.customize.default';
+    }
+    
+    return view($customizeView, ['template' => $template, 'templateData' => $templateData]);
 })->middleware('auth')->name('template.customize');
 
 // Authentication routes
@@ -340,12 +376,20 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Terms and Conditions
+Route::get('/terms', function () {
+    return view('terms');
+})->name('terms');
+
 // Customized Template routes (protected by auth middleware)
 Route::middleware('auth')->group(function () {
+    Route::post('/api/templates/draft', [CustomizedTemplateController::class, 'saveDraft'])->name('templates.save-draft');
     Route::post('/api/templates', [CustomizedTemplateController::class, 'store'])->name('templates.store');
+    Route::get('/api/templates/{id}', [CustomizedTemplateController::class, 'getTemplate'])->name('templates.get');
     Route::put('/api/templates/{id}', [CustomizedTemplateController::class, 'update'])->name('templates.update');
     Route::get('/api/templates', [CustomizedTemplateController::class, 'index'])->name('templates.index');
     Route::delete('/api/templates/{id}', [CustomizedTemplateController::class, 'destroy'])->name('templates.destroy');
+    Route::post('/api/templates/delete-image', [CustomizedTemplateController::class, 'deleteImage'])->name('templates.delete-image');
     
     // Admin routes
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -362,19 +406,29 @@ use Illuminate\Support\Facades\Artisan;
 // PIN verification route (must be before the slug route)
 Route::post('/{slug}/verify-pin', [CustomizedTemplateController::class, 'verifyPin'])->name('templates.verify-pin');
 
+// Gift box animation page (after PIN verification)
+Route::get('/{slug}/gift-box', function ($slug) {
+    $controller = app(CustomizedTemplateController::class);
+    return $controller->showGiftBox(request(), $slug);
+})->name('templates.gift-box');
+
 // Published template route - must be last to avoid conflicts with other routes
 // This will catch any slug that doesn't match the routes above
 Route::get('/{slug}', function ($slug) use ($templates) {
+    \Log::info('Route hit for slug', ['slug' => $slug]);
+    
     // Skip if it's a reserved route or starts with reserved prefixes
-    $reservedRoutes = ['login', 'register', 'logout', 'api', 'template', 'admin', 'storage', 'vendor', 'public'];
+    $reservedRoutes = ['login', 'register', 'logout', 'api', 'template', 'admin', 'storage', 'vendor', 'public', 'create'];
     $reservedPrefixes = ['api/', 'template/', 'admin/'];
     
     if (in_array($slug, $reservedRoutes)) {
+        \Log::info('Slug is reserved route', ['slug' => $slug]);
         abort(404);
     }
     
     foreach ($reservedPrefixes as $prefix) {
         if (str_starts_with($slug, $prefix)) {
+            \Log::info('Slug starts with reserved prefix', ['slug' => $slug, 'prefix' => $prefix]);
             abort(404);
         }
     }
