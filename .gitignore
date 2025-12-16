@@ -33,5 +33,5 @@ Homestead.yaml
 
 # Ignore temporary or build files that can be regenerated
 /public/hot
-/public/storage
+
 
