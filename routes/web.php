@@ -412,6 +412,34 @@ Route::get('/{slug}/gift-box', function ($slug) {
     return $controller->showGiftBox(request(), $slug);
 })->name('templates.gift-box');
 
+// Serve static assets from public/assets directory
+Route::get('/assets/{file}', function ($file) {
+    // Sanitize the file path to prevent directory traversal
+    $file = basename($file);
+    $filePath = public_path('assets/' . $file);
+    
+    // Check if file exists and is within the assets directory
+    $realPath = realpath($filePath);
+    $assetsDir = realpath(public_path('assets'));
+    
+    if ($realPath && $assetsDir && str_starts_with($realPath, $assetsDir) && is_file($realPath)) {
+        $mimeType = mime_content_type($realPath) ?: 'application/octet-stream';
+        return response()->file($realPath, [
+            'Content-Type' => $mimeType,
+            'Cache-Control' => 'public, max-age=31536000',
+        ]);
+    }
+    
+    \Log::warning('Asset file not found', [
+        'requested_file' => $file,
+        'file_path' => $filePath,
+        'real_path' => $realPath,
+        'assets_dir' => $assetsDir,
+    ]);
+    
+    abort(404);
+})->where('file', '.*');
+
 // Published template route - must be last to avoid conflicts with other routes
 // This will catch any slug that doesn't match the routes above
 Route::get('/{slug}', function ($slug) use ($templates) {
@@ -420,15 +448,6 @@ Route::get('/{slug}', function ($slug) use ($templates) {
     // Skip if it's a reserved route or starts with reserved prefixes
     $reservedRoutes = ['login', 'register', 'logout', 'api', 'template', 'admin', 'storage', 'vendor', 'public', 'create', 'assets'];
     $reservedPrefixes = ['api/', 'template/', 'admin/', 'assets/'];
-    
-    // Check if it's an asset file - serve it directly
-    if (str_starts_with($slug, 'assets/')) {
-        $filePath = public_path($slug);
-        if (file_exists($filePath)) {
-            return response()->file($filePath);
-        }
-        abort(404);
-    }
     
     if (in_array($slug, $reservedRoutes)) {
         \Log::info('Slug is reserved route', ['slug' => $slug]);
