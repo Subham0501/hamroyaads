@@ -412,6 +412,25 @@ Route::get('/{slug}/gift-box', function ($slug) {
     return $controller->showGiftBox(request(), $slug);
 })->name('templates.gift-box');
 
+// Migration route - run migrations directly from browser
+Route::get('/migrate', function () {
+    try {
+        \Artisan::call('migrate', ['--force' => true]);
+        $output = \Artisan::output();
+        return response()->json([
+            'success' => true,
+            'message' => 'Migrations completed successfully',
+            'output' => $output
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Migration failed',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+})->name('migrate');
+
 // Serve static assets from public/assets directory - must be before catch-all route
 Route::get('/assets/{file}', function ($file) {
     // Sanitize filename to prevent directory traversal

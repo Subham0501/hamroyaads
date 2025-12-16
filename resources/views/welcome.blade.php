@@ -91,14 +91,9 @@
                 <!-- Left Side - Image -->
                 <div class="order-2 lg:order-1 flex justify-center lg:justify-start">
                     <div class="relative group max-w-xs lg:max-w-sm w-full">
-                        <div class="absolute -inset-4 bg-gradient-to-r from-[#ff6b6b] to-[#ff5252] rounded-3xl blur-2xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
                         <div class="relative rounded-3xl overflow-hidden shadow-2xl transform group-hover:scale-[1.02] transition-transform duration-300">
                             <img src="{{ asset('assets/image_1_1765817075593.jpg') }}" alt="Hamro Yaad Memory" class="w-full h-auto object-cover rounded-3xl">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
                         </div>
-                        <!-- Decorative Elements -->
-                        <div class="absolute -top-6 -right-6 w-24 h-24 bg-gradient-to-br from-[#ff6b6b]/20 to-[#ff5252]/20 rounded-full blur-xl"></div>
-                        <div class="absolute -bottom-6 -left-6 w-32 h-32 bg-gradient-to-tr from-[#ff8fab]/20 to-[#ff6b9d]/20 rounded-full blur-xl"></div>
                     </div>
         </div>
         
@@ -140,20 +135,20 @@
                 <!-- Hero Images Gallery -->
                 <div class="pt-12 pb-8">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-8">
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                            <img src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&q=80" alt="Memory 1" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300">
+                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
+                            <img src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&q=80" alt="Memory 1" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </div>
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                            <img src="https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&q=80" alt="Memory 2" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300">
+                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
+                            <img src="https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&q=80" alt="Memory 2" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </div>
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                            <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=400&q=80" alt="Memory 3" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300">
+                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
+                            <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=400&q=80" alt="Memory 3" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </div>
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                            <img src="https://images.unsplash.com/photo-1519741497674-611481863552?w=400&q=80" alt="Memory 4" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300">
+                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
+                            <img src="https://images.unsplash.com/photo-1519741497674-611481863552?w=400&q=80" alt="Memory 4" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </div>
                     </div>
@@ -169,7 +164,7 @@
                         </div>
                     </div>
                     <p class="text-lg md:text-xl font-bold text-gray-700 dark:text-[#cbd5e1] mt-6">
-                        45,000+ memories eternalized
+                        125+ memories eternalized
                     </p>
                 </div>
             </div>
@@ -417,7 +412,7 @@
                 $faqs = [
                     ['q' => 'What is Hamro Yaad?', 'a' => 'Hamro Yaad is a platform where you can create beautiful, personalized gift websites. Share your story, photos, and messages with a custom website that you can share via link or QR code.'],
                     ['q' => 'What can I include in my website?', 'a' => 'Your website can include custom text, multiple photos, personalized messages, custom colors, and sections. You\'ll also get a unique link and QR code to share.'],
-                    ['q' => 'Does my website expire?', 'a' => 'No, your website stays online permanently. Once created, it remains accessible through your unique link.'],
+                    ['q' => 'Does my website expire?', 'a' => 'Your website is valid for 1 year from the date of creation. After 1 year, you need to renew it to keep it accessible through your unique link.'],
                     ['q' => 'How quickly will I get my website link?', 'a' => 'You\'ll receive your unique link and QR code immediately via email after completing your website customization.'],
                     ['q' => 'How can I get help if I need it?', 'a' => 'You can reach out through our support email or social media channels. Our team is here to help ensure your website is perfect.'],
                     ['q' => 'What payment methods do you accept?', 'a' => 'We accept secure payments via Bank Transfer, eSewa, Credit Card, and other major payment methods for your convenience.'],
