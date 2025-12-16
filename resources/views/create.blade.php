@@ -1661,7 +1661,7 @@
                     if ((message || from) && !messageSection) {
                         messageSection = document.createElement('section');
                         messageSection.className = 'preview-message-content';
-                        messageSection.style.marginTop = youtubeUrl ? '3rem' : '2rem';
+                        messageSection.style.marginTop = '2rem';
                         messageSection.style.margin = '2rem auto';
                         messageSection.style.maxWidth = '100%';
                         messageSection.style.padding = '0';
@@ -1740,89 +1740,24 @@
                         }
                     }
                     
-                    // Update YouTube player
-                    let youtubePlayerEl = existingContainer.querySelector('[style*="position: fixed"], [id*="youtube"], [class*="youtube"]');
-                    // Also check for the fixed position div that contains the player
+                    // YouTube player removed from preview - not displaying Background Music in create preview
+                    // Remove any existing YouTube player elements from preview
+                    let youtubePlayerEl = existingContainer.querySelector('[style*="position: fixed"], [id*="youtube"], [class*="youtube"], [data-youtube-player]');
                     if (!youtubePlayerEl) {
                         const allFixed = existingContainer.querySelectorAll('[style*="position"]');
                         allFixed.forEach(el => {
-                            if (el.style.position === 'fixed' && el.textContent.includes('Background Music')) {
+                            if (el.textContent && el.textContent.includes('Background Music')) {
                                 youtubePlayerEl = el;
                             }
                         });
                     }
-                    
-                    if (youtubeUrl && !youtubePlayerEl) {
-                        // Create YouTube player
-                        youtubePlayerEl = document.createElement('div');
-                        youtubePlayerEl.setAttribute('data-youtube-player', 'true');
-                        youtubePlayerEl.style.position = 'sticky';
-                        youtubePlayerEl.style.top = '0';
-                        youtubePlayerEl.style.left = '0';
-                        youtubePlayerEl.style.right = '0';
-                        youtubePlayerEl.style.zIndex = '9999';
-                        youtubePlayerEl.style.background = `linear-gradient(135deg, ${themeColor} 0%, #ff5252 100%)`;
-                        youtubePlayerEl.style.padding = '0.75rem 1rem';
-                        youtubePlayerEl.style.display = 'flex';
-                        youtubePlayerEl.style.alignItems = 'center';
-                        youtubePlayerEl.style.gap = '0.75rem';
-                        youtubePlayerEl.style.fontSize = '0.75rem';
-                        youtubePlayerEl.style.color = 'white';
-                        youtubePlayerEl.style.borderBottom = '2px solid rgba(255,255,255,0.1)';
-                        youtubePlayerEl.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
-                        youtubePlayerEl.style.marginBottom = '1rem';
-                        
-                        const playBtn = document.createElement('button');
-                        playBtn.style.width = '40px';
-                        playBtn.style.height = '40px';
-                        playBtn.style.borderRadius = '50%';
-                        playBtn.style.background = 'rgba(255,255,255,0.2)';
-                        playBtn.style.border = '2px solid rgba(255,255,255,0.3)';
-                        playBtn.style.display = 'flex';
-                        playBtn.style.alignItems = 'center';
-                        playBtn.style.justifyContent = 'center';
-                        playBtn.style.cursor = 'pointer';
-                        playBtn.style.fontSize = '0.9rem';
-                        playBtn.style.color = 'white';
-                        playBtn.style.transition = 'all 0.3s ease';
-                        playBtn.innerHTML = '<span>▶</span>';
-                        youtubePlayerEl.appendChild(playBtn);
-                        
-                        const infoDiv = document.createElement('div');
-                        infoDiv.style.flex = '1';
-                        const titleDiv = document.createElement('div');
-                        titleDiv.style.fontWeight = '600';
-                        titleDiv.style.fontSize = '0.85rem';
-                        titleDiv.style.marginBottom = '0.1rem';
-                        titleDiv.textContent = 'Background Music';
-                        const subtitleDiv = document.createElement('div');
-                        subtitleDiv.style.fontSize = '0.7rem';
-                        subtitleDiv.style.opacity = '0.9';
-                        subtitleDiv.textContent = 'YouTube Audio';
-                        infoDiv.appendChild(titleDiv);
-                        infoDiv.appendChild(subtitleDiv);
-                        youtubePlayerEl.appendChild(infoDiv);
-                        
-                        // Insert at the beginning of container (but fixed position will work relative to viewport)
-                        existingContainer.insertBefore(youtubePlayerEl, existingContainer.firstChild);
-                        
-                        // Also update message section margin if it exists
-                        const msgSection = existingContainer.querySelector('.preview-message-content');
-                        if (msgSection) {
-                            msgSection.style.marginTop = '3rem';
-                        }
-                    } else if (!youtubeUrl && youtubePlayerEl) {
+                    if (youtubePlayerEl) {
                         youtubePlayerEl.remove();
-                        // Update message section margin when player is removed
-                        const msgSection = existingContainer.querySelector('.preview-message-content');
-                        if (msgSection) {
-                            msgSection.style.marginTop = '2rem';
-                        }
-                    } else if (youtubeUrl && youtubePlayerEl) {
-                        // Update theme color in YouTube player if changed
-                        if (themeColor !== previousPreviewState.themeColor) {
-                            youtubePlayerEl.style.background = `linear-gradient(135deg, ${themeColor} 0%, #ff5252 100%)`;
-                        }
+                    }
+                    // Ensure message section margin is correct (no YouTube player)
+                    const msgSection = existingContainer.querySelector('.preview-message-content');
+                    if (msgSection) {
+                        msgSection.style.marginTop = '2rem';
                     }
                     
                     // Update theme color in all gradient elements
@@ -1852,7 +1787,7 @@
                     
                     // Update message section margin if YouTube player state changed
                     if (messageSection && (youtubeUrl !== previousPreviewState.youtubeUrl)) {
-                        messageSection.style.marginTop = youtubeUrl ? '3rem' : '2rem';
+                        messageSection.style.marginTop = '2rem';
                     }
                     
                     // Update state
@@ -2023,22 +1958,11 @@
                             </div>
                         ` : ''}
                         
-                        <!-- YouTube Audio Player Preview -->
-                        ${youtubeUrl ? `
-                            <div style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(135deg, ${themeColor} 0%, #ff5252 100%); padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.75rem; font-size: 0.75rem; color: white; border-bottom: 2px solid rgba(255,255,255,0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-                                <button style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.9rem; color: white; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
-                                    <span id="previewPlayIcon">▶</span>
-                                </button>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.1rem;">Background Music</div>
-                                    <div style="font-size: 0.7rem; opacity: 0.9;">YouTube Audio</div>
-                                </div>
-                            </div>
-                        ` : ''}
+                        <!-- YouTube Audio Player Preview removed - not displaying in create preview -->
                         
                         <!-- Message Section - Premium (Not in Box) -->
                         ${message || from ? `
-                            <section class="preview-message-content" style="margin-top: ${youtubeUrl ? '3rem' : '2rem'};">
+                            <section class="preview-message-content" style="margin-top: 2rem;">
                                 ${message ? `
                                     <div class="preview-message-text">${message}</div>
                                 ` : ''}

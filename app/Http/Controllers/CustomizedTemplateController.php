@@ -868,34 +868,83 @@ class CustomizedTemplateController extends Controller
             // For Cloudflare R2, no need to create directories (S3-compatible)
             if ($disk === 'cloudflare') {
                 // Use S3 client directly to set explicit ContentType (avoids fileinfo dependency)
-                try {
-                    $s3Client = Storage::disk('cloudflare')->getDriver()->getAdapter()->getClient();
-                    $bucket = config('filesystems.disks.cloudflare.bucket');
-                    $mimeType = $this->getMimeTypeFromExtension($extension);
-                    
-                    $putObjectParams = [
-                        'Bucket' => $bucket,
-                        'Key' => $path,
-                        'Body' => $imageData,
-                        'ContentType' => $mimeType,
-                    ];
-                    
-                    // Cloudflare R2 may not support ACL, so make it optional
-                    // Public access is typically configured at bucket level in R2
-                    if (env('CLOUDFLARE_R2_USE_ACL', false)) {
-                        $putObjectParams['ACL'] = 'public-read';
+                // Check if AWS SDK is available
+                if (class_exists('\Aws\S3\S3Client')) {
+                    try {
+                        // Create S3 client directly using configuration
+                        $s3Client = new \Aws\S3\S3Client([
+                            'version' => 'latest',
+                            'region' => config('filesystems.disks.cloudflare.region', 'auto'),
+                            'endpoint' => config('filesystems.disks.cloudflare.endpoint'),
+                            'credentials' => [
+                                'key' => config('filesystems.disks.cloudflare.key'),
+                                'secret' => config('filesystems.disks.cloudflare.secret'),
+                            ],
+                            'use_path_style_endpoint' => config('filesystems.disks.cloudflare.use_path_style_endpoint', false),
+                        ]);
+                        
+                        $bucket = config('filesystems.disks.cloudflare.bucket');
+                        $mimeType = $this->getMimeTypeFromExtension($extension);
+                        
+                        $putObjectParams = [
+                            'Bucket' => $bucket,
+                            'Key' => $path,
+                            'Body' => $imageData,
+                            'ContentType' => $mimeType,
+                        ];
+                        
+                        // Cloudflare R2 may not support ACL, so make it optional
+                        // Public access is typically configured at bucket level in R2
+                        if (env('CLOUDFLARE_R2_USE_ACL', false)) {
+                            $putObjectParams['ACL'] = 'public-read';
+                        }
+                        
+                        $result = $s3Client->putObject($putObjectParams);
+                        
+                        $saved = isset($result['ETag']);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to upload to Cloudflare R2 using S3 client', [
+                            'error' => $e->getMessage(),
+                            'path' => $path
+                        ]);
+                        $saved = false;
                     }
-                    
-                    $result = $s3Client->putObject($putObjectParams);
-                    
-                    $saved = isset($result['ETag']);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to upload to Cloudflare R2 using S3 client', [
-                        'error' => $e->getMessage(),
-                        'path' => $path
-                    ]);
-                    // Fallback to Storage facade (may fail if fileinfo is missing)
-                    $saved = Storage::disk('cloudflare')->put($path, $imageData, 'public');
+                } else {
+                    $saved = false;
+                    \Log::warning('AWS SDK not available, will use fallback method');
+                }
+                
+                // Fallback: Use Storage facade with temporary file (helps with MIME detection)
+                if (!$saved) {
+                    try {
+                        // Create a temporary file with correct extension to help MIME detection
+                        $tempFile = sys_get_temp_dir() . '/' . uniqid('upload_') . '_' . $filename;
+                        file_put_contents($tempFile, $imageData);
+                        
+                        // Use putFileAs which may handle MIME type better
+                        $savedPath = Storage::disk('cloudflare')->putFileAs(
+                            "templates/{$userId}",
+                            $tempFile,
+                            $filename,
+                            ['visibility' => 'public']
+                        );
+                        
+                        // Clean up temp file
+                        if (file_exists($tempFile)) {
+                            unlink($tempFile);
+                        }
+                        
+                        $saved = !empty($savedPath);
+                    } catch (\Exception $e) {
+                        if (isset($tempFile) && file_exists($tempFile)) {
+                            unlink($tempFile);
+                        }
+                        \Log::error('Fallback upload failed', [
+                            'error' => $e->getMessage(),
+                            'path' => $path
+                        ]);
+                        $saved = false;
+                    }
                 }
                 
                 if ($saved) {
