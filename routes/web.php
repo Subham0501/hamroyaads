@@ -418,8 +418,17 @@ Route::get('/{slug}', function ($slug) use ($templates) {
     \Log::info('Route hit for slug', ['slug' => $slug]);
     
     // Skip if it's a reserved route or starts with reserved prefixes
-    $reservedRoutes = ['login', 'register', 'logout', 'api', 'template', 'admin', 'storage', 'vendor', 'public', 'create'];
-    $reservedPrefixes = ['api/', 'template/', 'admin/'];
+    $reservedRoutes = ['login', 'register', 'logout', 'api', 'template', 'admin', 'storage', 'vendor', 'public', 'create', 'assets'];
+    $reservedPrefixes = ['api/', 'template/', 'admin/', 'assets/'];
+    
+    // Check if it's an asset file - serve it directly
+    if (str_starts_with($slug, 'assets/')) {
+        $filePath = public_path($slug);
+        if (file_exists($filePath)) {
+            return response()->file($filePath);
+        }
+        abort(404);
+    }
     
     if (in_array($slug, $reservedRoutes)) {
         \Log::info('Slug is reserved route', ['slug' => $slug]);
