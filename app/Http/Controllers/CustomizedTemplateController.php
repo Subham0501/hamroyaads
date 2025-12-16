@@ -1066,7 +1066,59 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
+     * Check if a page name is already taken (globally, across all users).
+     */
+    public function checkPageName(Request $request)
+    {
+        $request->validate([
+            'page_name' => 'required|string|max:255',
+            'draft_id' => 'nullable|integer', // Exclude current draft from check
+        ]);
+
+        $pageName = $request->input('page_name');
+        $draftId = $request->input('draft_id');
+        
+        if (empty($pageName) || trim($pageName) === '') {
+            return response()->json([
+                'available' => false,
+                'message' => 'Page name cannot be empty',
+            ]);
+        }
+
+        // Generate slug from page name (check globally, not per user)
+        $baseSlug = Str::slug($pageName ?: 'untitled-template');
+        
+        // Check if slug exists globally (excluding current draft if provided)
+        $query = CustomizedTemplate::where('slug', $baseSlug);
+        
+        if ($draftId) {
+            // Exclude current draft from check
+            $query->where('id', '!=', $draftId);
+            
+            // Also check if the current draft already has this slug (allow it)
+            $currentDraft = CustomizedTemplate::find($draftId);
+            if ($currentDraft && $currentDraft->slug === $baseSlug && $currentDraft->user_id === Auth::id()) {
+                // User's own draft with this slug - allow it
+                return response()->json([
+                    'available' => true,
+                    'slug' => $baseSlug,
+                    'message' => 'Page name is available',
+                ]);
+            }
+        }
+        
+        $exists = $query->exists();
+        
+        return response()->json([
+            'available' => !$exists,
+            'slug' => $baseSlug,
+            'message' => $exists ? 'This page name is already taken. Please choose a different name.' : 'Page name is available',
+        ]);
+    }
+
+    /**
      * Delete a single image via API (for frontend use).
+     * Deletes from both Cloudflare R2 storage and database.
      */
     public function deleteImage(Request $request)
     {
@@ -1085,22 +1137,155 @@ class CustomizedTemplateController extends Controller
         }
 
         try {
+            $userId = Auth::id();
+            $updated = false;
+            
+            // Find all templates belonging to this user that might contain this image
+            $templates = CustomizedTemplate::where('user_id', $userId)->get();
+            
+            foreach ($templates as $template) {
+                $needsUpdate = false;
+                
+                // Normalize the image URL for comparison (remove query strings, decode, etc.)
+                $normalizeUrl = function($url) {
+                    if (empty($url)) return '';
+                    // Remove query strings
+                    $url = strtok($url, '?');
+                    // Decode URL encoding
+                    $url = urldecode($url);
+                    // Remove trailing slashes
+                    $url = rtrim($url, '/');
+                    return $url;
+                };
+                
+                $normalizedImageUrl = $normalizeUrl($imageUrl);
+                
+                // Check and remove from heading_images
+                if ($template->heading_images && is_array($template->heading_images)) {
+                    $originalCount = count($template->heading_images);
+                    $template->heading_images = array_values(array_filter($template->heading_images, function($url) use ($imageUrl, $normalizedImageUrl, $normalizeUrl) {
+                        if (empty($url)) return false;
+                        $normalizedUrl = $normalizeUrl($url);
+                        // Compare normalized URLs
+                        return $normalizedUrl !== $normalizedImageUrl && 
+                               $url !== $imageUrl &&
+                               !Str::endsWith($normalizedUrl, $normalizedImageUrl) && 
+                               !Str::endsWith($normalizedImageUrl, $normalizedUrl);
+                    }));
+                    
+                    if (count($template->heading_images) < $originalCount) {
+                        $needsUpdate = true;
+                        \Log::info('Removed image from heading_images', [
+                            'template_id' => $template->id,
+                            'image_url' => $imageUrl,
+                            'remaining_count' => count($template->heading_images)
+                        ]);
+                    }
+                }
+                
+                // Check and remove from images array (which may contain 'memories', 'section2', etc.)
+                if ($template->images && is_array($template->images)) {
+                    $images = $template->images;
+                    
+                    // Check memories array
+                    if (isset($images['memories']) && is_array($images['memories'])) {
+                        $originalCount = count($images['memories']);
+                        $images['memories'] = array_values(array_filter($images['memories'], function($url) use ($imageUrl, $normalizedImageUrl, $normalizeUrl) {
+                            if (empty($url)) return false;
+                            $normalizedUrl = $normalizeUrl($url);
+                            return $normalizedUrl !== $normalizedImageUrl && 
+                                   $url !== $imageUrl &&
+                                   !Str::endsWith($normalizedUrl, $normalizedImageUrl) && 
+                                   !Str::endsWith($normalizedImageUrl, $normalizedUrl);
+                        }));
+                        
+                        if (count($images['memories']) < $originalCount) {
+                            $needsUpdate = true;
+                            \Log::info('Removed image from images.memories', [
+                                'template_id' => $template->id,
+                                'image_url' => $imageUrl,
+                                'remaining_count' => count($images['memories'])
+                            ]);
+                        }
+                    }
+                    
+                    // Check other image arrays (section2, section3, hero, etc.)
+                    foreach ($images as $key => $value) {
+                        if ($key === 'memories') continue; // Already handled
+                        
+                        if (is_array($value)) {
+                            foreach ($value as $subKey => $subValue) {
+                                if (is_string($subValue) && !empty($subValue)) {
+                                    $normalizedSubValue = $normalizeUrl($subValue);
+                                    if ($normalizedSubValue === $normalizedImageUrl || 
+                                        $subValue === $imageUrl ||
+                                        Str::endsWith($normalizedSubValue, $normalizedImageUrl) || 
+                                        Str::endsWith($normalizedImageUrl, $normalizedSubValue)) {
+                                        unset($images[$key][$subKey]);
+                                        $needsUpdate = true;
+                                        \Log::info('Removed image from images array', [
+                                            'template_id' => $template->id,
+                                            'key' => $key,
+                                            'sub_key' => $subKey,
+                                            'image_url' => $imageUrl
+                                        ]);
+                                    }
+                                }
+                            }
+                            // Re-index array if needed
+                            if (isset($images[$key]) && is_array($images[$key])) {
+                                $images[$key] = array_values($images[$key]);
+                            }
+                        } elseif (is_string($value) && !empty($value)) {
+                            $normalizedValue = $normalizeUrl($value);
+                            if ($normalizedValue === $normalizedImageUrl || 
+                                $value === $imageUrl ||
+                                Str::endsWith($normalizedValue, $normalizedImageUrl) || 
+                                Str::endsWith($normalizedImageUrl, $normalizedValue)) {
+                                unset($images[$key]);
+                                $needsUpdate = true;
+                                \Log::info('Removed image from images array', [
+                                    'template_id' => $template->id,
+                                    'key' => $key,
+                                    'image_url' => $imageUrl
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    if ($needsUpdate) {
+                        $template->images = $images;
+                    }
+                }
+                
+                // Save the template if it was updated
+                if ($needsUpdate) {
+                    $template->save();
+                    $updated = true;
+                }
+            }
+            
+            // Delete the file from storage (Cloudflare R2 or local)
             $this->deleteImageFile($imageUrl);
             
             \Log::info('Image deleted via API', [
-                'user_id' => Auth::id(),
+                'user_id' => $userId,
                 'image_url' => $imageUrl,
+                'database_updated' => $updated,
+                'templates_checked' => $templates->count(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Image deleted successfully',
+                'message' => 'Image deleted successfully from storage and database',
+                'database_updated' => $updated,
             ]);
         } catch (\Exception $e) {
             \Log::error('Failed to delete image via API', [
                 'user_id' => Auth::id(),
                 'image_url' => $imageUrl,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([

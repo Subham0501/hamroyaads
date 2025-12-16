@@ -312,6 +312,12 @@
                             <div class="relative">
                                 <input type="text" id="page-name" placeholder="Ex: Gabriel and Clara or Happy Birthday" 
                                        class="w-full px-5 py-4 bg-gray-800 dark:bg-gray-900 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 text-lg focus:outline-none focus:border-[#ff6b6b] transition-colors">
+                                <div id="page-name-error" class="hidden mt-2 text-red-500 text-sm flex items-start gap-2">
+                                    <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span id="page-name-error-text"></span>
+                                </div>
                             </div>
                             
                             <div class="flex items-start gap-2 text-gray-400 text-sm">
@@ -755,23 +761,12 @@
                 const savedData = localStorage.getItem('memoryFormData');
                 const formData = savedData ? JSON.parse(savedData) : {};
                 
-                // Get heading images - prefer cached URLs, fallback to DOM
+                // Get heading images - prioritize DOM (current state) over cache to prevent restoring deleted images
                 const headingImagesPreview = document.getElementById('heading-images-preview');
                 let headingImages = [];
                 const seenHeadingImages = new Set(); // Track to prevent duplicates
                 
-                // First, use cached URLs if available (from previous save)
-                if (cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) {
-                    cachedDraftImages.heading_images.forEach(url => {
-                        if (url && !seenHeadingImages.has(url)) {
-                            headingImages.push(url);
-                            seenHeadingImages.add(url);
-                        }
-                    });
-                    console.log('📸 Using cached heading images:', headingImages.length);
-                }
-                
-                // Then, check DOM for any new images or updates
+                // First, get images from DOM (current state - source of truth)
                 if (headingImagesPreview && headingImagesPreview.children.length > 0) {
                     Array.from(headingImagesPreview.children).forEach(container => {
                         const img = container.querySelector('img');
@@ -800,7 +795,18 @@
                             seenHeadingImages.add(imgSrc);
                         }
                     });
-                    console.log('📸 Added images from DOM, total heading images:', headingImages.length);
+                    console.log('📸 Got heading images from DOM:', headingImages.length);
+                }
+                
+                // Only use cached images if DOM is empty (for initial load scenarios)
+                if (headingImages.length === 0 && cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) {
+                    cachedDraftImages.heading_images.forEach(url => {
+                        if (url && !seenHeadingImages.has(url)) {
+                            headingImages.push(url);
+                            seenHeadingImages.add(url);
+                        }
+                    });
+                    console.log('📸 Using cached heading images (DOM was empty):', headingImages.length);
                 }
                 
                 // If still no images and we have a draft ID, try loading from database first
@@ -809,23 +815,12 @@
                     // Don't send empty array - let backend preserve existing images
                 }
                 
-                // Get additional images - prefer cached URLs, fallback to DOM
+                // Get additional images - prioritize DOM (current state) over cache to prevent restoring deleted images
                 const imagesPreview = document.getElementById('images-preview');
                 let additionalImages = [];
                 const seenAdditionalImages = new Set(); // Track to prevent duplicates
                 
-                // First, use cached URLs if available
-                if (cachedDraftImages.images && cachedDraftImages.images.length > 0) {
-                    cachedDraftImages.images.forEach(url => {
-                        if (url && !seenAdditionalImages.has(url)) {
-                            additionalImages.push(url);
-                            seenAdditionalImages.add(url);
-                        }
-                    });
-                    console.log('📸 Using cached additional images:', additionalImages.length);
-                }
-                
-                // Then, check DOM for any new images or updates
+                // First, get images from DOM (current state - source of truth)
                 if (imagesPreview && imagesPreview.children.length > 0) {
                     Array.from(imagesPreview.children).forEach(container => {
                         const img = container.querySelector('img');
@@ -854,7 +849,18 @@
                             seenAdditionalImages.add(imgSrc);
                         }
                     });
-                    console.log('📸 Added images from DOM, total additional images:', additionalImages.length);
+                    console.log('📸 Got additional images from DOM:', additionalImages.length);
+                }
+                
+                // Only use cached images if DOM is empty (for initial load scenarios)
+                if (additionalImages.length === 0 && cachedDraftImages.images && cachedDraftImages.images.length > 0) {
+                    cachedDraftImages.images.forEach(url => {
+                        if (url && !seenAdditionalImages.has(url)) {
+                            additionalImages.push(url);
+                            seenAdditionalImages.add(url);
+                        }
+                    });
+                    console.log('📸 Using cached additional images (DOM was empty):', additionalImages.length);
                 }
                 
                 // If still no images and we have a draft ID, try loading from database first
@@ -1233,6 +1239,78 @@
             
             // Navigation with data saving
             document.getElementById('next-btn')?.addEventListener('click', async function() {
+                // If on step 1, validate page name before proceeding
+                if (currentStep === 1) {
+                    const pageNameInput = document.getElementById('page-name');
+                    const pageName = pageNameInput?.value?.trim() || '';
+                    
+                    if (!pageName) {
+                        alert('Please enter a page name before proceeding.');
+                        pageNameInput?.focus();
+                        return;
+                    }
+                    
+                    // Check if page name is already taken
+                    try {
+                        const draftId = currentDraftId || localStorage.getItem('draftId');
+                        const response = await fetch('{{ route("templates.check-page-name") }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                            },
+                            body: JSON.stringify({
+                                page_name: pageName,
+                                draft_id: draftId ? parseInt(draftId) : null
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (!result.available) {
+                            // Show error message
+                            const errorDiv = document.getElementById('page-name-error');
+                            const errorText = document.getElementById('page-name-error-text');
+                            
+                            if (errorDiv && errorText) {
+                                errorText.textContent = result.message || 'This page name is already taken. Please choose a different name.';
+                                errorDiv.classList.remove('hidden');
+                            } else {
+                                alert(result.message || 'This page name is already taken. Please choose a different name.');
+                            }
+                            
+                            pageNameInput?.focus();
+                            
+                            // Add error styling
+                            if (pageNameInput) {
+                                pageNameInput.classList.add('border-red-500');
+                                pageNameInput.classList.remove('border-gray-700', 'focus:border-[#ff6b6b]');
+                                
+                                // Remove error styling and message after user starts typing
+                                const removeError = function() {
+                                    pageNameInput.classList.remove('border-red-500');
+                                    pageNameInput.classList.add('border-gray-700', 'focus:border-[#ff6b6b]');
+                                    if (errorDiv) {
+                                        errorDiv.classList.add('hidden');
+                                    }
+                                    pageNameInput.removeEventListener('input', removeError);
+                                };
+                                pageNameInput.addEventListener('input', removeError, { once: true });
+                            }
+                            return;
+                        } else {
+                            // Hide error message if page name is available
+                            const errorDiv = document.getElementById('page-name-error');
+                            if (errorDiv) {
+                                errorDiv.classList.add('hidden');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error checking page name:', error);
+                        // Continue if check fails (don't block user)
+                    }
+                }
+                
                 saveFormData(); // Save before navigating
                 // Ensure images are saved before navigating forward
                 try {
@@ -2272,25 +2350,43 @@
                             e.stopPropagation();
                             const imageUrl = img.src;
                             
-                            // Delete from Cloudflare if it's already uploaded (not base64)
+                            // Remove from DOM first
+                            imgContainer.remove();
+                            
+                            // Remove from cached images to prevent restoration
+                            if (cachedDraftImages.heading_images) {
+                                cachedDraftImages.heading_images = cachedDraftImages.heading_images.filter(url => {
+                                    // Normalize URLs for comparison
+                                    const normalizeUrl = (u) => u ? u.split('?')[0].replace(/\/$/, '') : '';
+                                    const normalizedUrl = normalizeUrl(url);
+                                    const normalizedImageUrl = normalizeUrl(imageUrl);
+                                    return normalizedUrl !== normalizedImageUrl && url !== imageUrl;
+                                });
+                                console.log('🗑️ Removed image from cached heading_images, remaining:', cachedDraftImages.heading_images.length);
+                            }
+                            
+                            // Delete from Cloudflare and database if it's already uploaded (not base64)
                             if (imageUrl && !imageUrl.startsWith('data:image') && (imageUrl.startsWith('http') || imageUrl.startsWith('/storage'))) {
                                 try {
                                     await deleteImageFromStorage(imageUrl);
+                                    console.log('✅ Image deleted from storage and database:', imageUrl.substring(0, 50) + '...');
                                 } catch (error) {
                                     console.error('Failed to delete image from storage:', error);
                                     // Continue with removal even if deletion fails
                                 }
                             }
                             
-                            imgContainer.remove();
                             updateImageCount();
                             updateImageNumbers();
                             saveFormData();
                             saveImagesToLocalStorage();
                             updatePreview();
-                            setTimeout(() => {
-                                saveDraftToBackend();
-                            }, 100);
+                            
+                            // Save draft after deletion to update database
+                            setTimeout(async () => {
+                                await saveDraftToBackend();
+                                console.log('✅ Draft updated after image deletion');
+                            }, 200);
                         });
                         
                         // Image number badge
@@ -2558,20 +2654,41 @@
                                             e.stopPropagation();
                                             const imageUrl = img.src;
                                             
-                                            // Delete from Cloudflare if it's already uploaded (not base64)
+                                            // Remove from DOM first
+                                            imgContainer.remove();
+                                            
+                                            // Remove from cached images to prevent restoration
+                                            if (cachedDraftImages.images) {
+                                                cachedDraftImages.images = cachedDraftImages.images.filter(url => {
+                                                    // Normalize URLs for comparison
+                                                    const normalizeUrl = (u) => u ? u.split('?')[0].replace(/\/$/, '') : '';
+                                                    const normalizedUrl = normalizeUrl(url);
+                                                    const normalizedImageUrl = normalizeUrl(imageUrl);
+                                                    return normalizedUrl !== normalizedImageUrl && url !== imageUrl;
+                                                });
+                                                console.log('🗑️ Removed image from cached images, remaining:', cachedDraftImages.images.length);
+                                            }
+                                            
+                                            // Delete from Cloudflare and database if it's already uploaded (not base64)
                                             if (imageUrl && !imageUrl.startsWith('data:image') && (imageUrl.startsWith('http') || imageUrl.startsWith('/storage'))) {
                                                 try {
                                                     await deleteImageFromStorage(imageUrl);
+                                                    console.log('✅ Image deleted from storage and database:', imageUrl.substring(0, 50) + '...');
                                                 } catch (error) {
                                                     console.error('Failed to delete image from storage:', error);
                                                     // Continue with removal even if deletion fails
                                                 }
                                             }
                                             
-                                            imgContainer.remove();
                                             updateImageCount();
                                             saveFormData();
-                                            saveDraftToBackend();
+                                            
+                                            // Save draft after deletion to update database
+                                            setTimeout(async () => {
+                                                await saveDraftToBackend();
+                                                console.log('✅ Draft updated after image deletion');
+                                            }, 200);
+                                            
                                             updatePreview();
                                         });
                                         
@@ -2642,19 +2759,40 @@
                                         removeBtn.addEventListener('click', async function() {
                                             const imageUrl = img.src;
                                             
-                                            // Delete from Cloudflare if it's already uploaded (not base64)
+                                            // Remove from DOM first
+                                            imgContainer.remove();
+                                            
+                                            // Remove from cached images to prevent restoration
+                                            if (cachedDraftImages.images) {
+                                                cachedDraftImages.images = cachedDraftImages.images.filter(url => {
+                                                    // Normalize URLs for comparison
+                                                    const normalizeUrl = (u) => u ? u.split('?')[0].replace(/\/$/, '') : '';
+                                                    const normalizedUrl = normalizeUrl(url);
+                                                    const normalizedImageUrl = normalizeUrl(imageUrl);
+                                                    return normalizedUrl !== normalizedImageUrl && url !== imageUrl;
+                                                });
+                                                console.log('🗑️ Removed image from cached images, remaining:', cachedDraftImages.images.length);
+                                            }
+                                            
+                                            // Delete from Cloudflare and database if it's already uploaded (not base64)
                                             if (imageUrl && !imageUrl.startsWith('data:image') && (imageUrl.startsWith('http') || imageUrl.startsWith('/storage'))) {
                                                 try {
                                                     await deleteImageFromStorage(imageUrl);
+                                                    console.log('✅ Image deleted from storage and database:', imageUrl.substring(0, 50) + '...');
                                                 } catch (error) {
                                                     console.error('Failed to delete image from storage:', error);
                                                     // Continue with removal even if deletion fails
                                                 }
                                             }
                                             
-                                            imgContainer.remove();
                                             saveFormData();
-                                            saveDraftToBackend();
+                                            
+                                            // Save draft after deletion to update database
+                                            setTimeout(async () => {
+                                                await saveDraftToBackend();
+                                                console.log('✅ Draft updated after image deletion');
+                                            }, 200);
+                                            
                                             updatePreview();
                                         });
                                         
