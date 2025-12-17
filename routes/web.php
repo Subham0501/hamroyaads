@@ -391,6 +391,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/templates/{id}', [CustomizedTemplateController::class, 'destroy'])->name('templates.destroy');
     Route::post('/api/templates/delete-image', [CustomizedTemplateController::class, 'deleteImage'])->name('templates.delete-image');
     Route::post('/api/templates/check-page-name', [CustomizedTemplateController::class, 'checkPageName'])->name('templates.check-page-name');
+    Route::post('/api/templates/check-recipient-name', [CustomizedTemplateController::class, 'checkRecipientName'])->name('templates.check-recipient-name');
     
     // Admin routes
     Route::prefix('admin')->name('admin.')->group(function () {

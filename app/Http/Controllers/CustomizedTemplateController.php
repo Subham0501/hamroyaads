@@ -1076,6 +1076,53 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
+     * Check if a recipient name is already taken (for the current user).
+     */
+    public function checkRecipientName(Request $request)
+    {
+        $request->validate([
+            'recipient_name' => 'required|string|max:255',
+            'draft_id' => 'nullable|integer', // Exclude current draft from check
+        ]);
+
+        $recipientName = $request->input('recipient_name');
+        $draftId = $request->input('draft_id');
+        
+        if (empty($recipientName) || trim($recipientName) === '') {
+            return response()->json([
+                'available' => false,
+                'message' => 'Recipient name cannot be empty',
+            ]);
+        }
+
+        // Check if recipient name exists for this user (excluding current draft if provided)
+        $query = CustomizedTemplate::where('recipient_name', $recipientName)
+            ->where('user_id', Auth::id());
+        
+        if ($draftId) {
+            // Exclude current draft from check
+            $query->where('id', '!=', $draftId);
+            
+            // Also check if the current draft already has this recipient name (allow it)
+            $currentDraft = CustomizedTemplate::find($draftId);
+            if ($currentDraft && $currentDraft->recipient_name === $recipientName && $currentDraft->user_id === Auth::id()) {
+                // User's own draft with this recipient name - allow it
+                return response()->json([
+                    'available' => true,
+                    'message' => 'Recipient name is available',
+                ]);
+            }
+        }
+        
+        $exists = $query->exists();
+        
+        return response()->json([
+            'available' => !$exists,
+            'message' => $exists ? 'This recipient name has already been taken. Please choose a different name.' : 'Recipient name is available',
+        ]);
+    }
+
+    /**
      * Check if a page name is already taken (globally, across all users).
      */
     public function checkPageName(Request $request)

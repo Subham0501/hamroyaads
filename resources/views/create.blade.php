@@ -274,10 +274,9 @@
                             1 => 'Page Name',
                             2 => 'Content',
                             3 => 'Images & Date',
-                            4 => 'Colors',
-                            5 => 'Recipient',
-                            6 => 'PIN',
-                            7 => 'Review'
+                            4 => 'Recipient',
+                            5 => 'PIN',
+                            6 => 'Review'
                         ];
                         $currentStep = request('step', 1);
                         @endphp
@@ -498,6 +497,12 @@
                                 <label class="block text-white font-semibold mb-3">Recipient Name</label>
                                 <input type="text" id="recipient-name" placeholder="Enter recipient's name" 
                                        class="w-full px-5 py-4 bg-gray-800 dark:bg-gray-900 border-2 border-gray-700 rounded-xl text-white placeholder-gray-500 text-lg focus:outline-none focus:border-[#ff6b6b] transition-colors">
+                                <div id="recipient-name-error" class="hidden mt-2 text-red-500 text-sm flex items-start gap-2">
+                                    <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span id="recipient-name-error-text"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -685,6 +690,8 @@
             let uploadedBase64Images = new Set();
             // Map base64 images to their uploaded URLs (to prevent re-uploading)
             let base64ToUrlMap = new Map();
+            // Track images that are currently uploading/processing
+            let uploadingImages = new Set();
             // Flag to prevent concurrent saves
             let isSavingDraft = false;
             // Cache for draft images from backend
@@ -1379,6 +1386,86 @@
                         }
                     }
                     
+                    // If on Recipient step, validate recipient name before proceeding
+                    const recipientNameInput = document.getElementById('recipient-name');
+                    if (recipientNameInput && recipientNameInput.offsetParent !== null) {
+                        const recipientName = recipientNameInput.value?.trim() || '';
+                        
+                        if (!recipientName) {
+                            alert('Please enter a recipient name before proceeding.');
+                            recipientNameInput?.focus();
+                            return;
+                        }
+                        
+                        // Show loading while checking recipient name
+                        showLoading('Validating...', 'Checking if recipient name is available');
+                        
+                        // Check if recipient name is already taken for this user
+                        try {
+                            const draftId = currentDraftId || localStorage.getItem('draftId');
+                            const response = await fetch('{{ route("templates.check-recipient-name") }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                },
+                                body: JSON.stringify({
+                                    recipient_name: recipientName,
+                                    draft_id: draftId ? parseInt(draftId) : null
+                                })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (!result.available) {
+                                hideLoading();
+                                // Show error message
+                                const errorDiv = document.getElementById('recipient-name-error');
+                                const errorText = document.getElementById('recipient-name-error-text');
+                                
+                                if (errorDiv && errorText) {
+                                    errorText.textContent = result.message || 'This recipient name has already been taken. Please choose a different name.';
+                                    errorDiv.classList.remove('hidden');
+                                } else {
+                                    alert(result.message || 'This recipient name has already been taken. Please choose a different name.');
+                                }
+                                
+                                recipientNameInput?.focus();
+                                
+                                // Add error styling
+                                if (recipientNameInput) {
+                                    recipientNameInput.classList.add('border-red-500');
+                                    recipientNameInput.classList.remove('border-gray-700', 'focus:border-[#ff6b6b]');
+                                    
+                                    // Remove error styling and message after user starts typing
+                                    const removeError = function() {
+                                        recipientNameInput.classList.remove('border-red-500');
+                                        recipientNameInput.classList.add('border-gray-700', 'focus:border-[#ff6b6b]');
+                                        if (errorDiv) {
+                                            errorDiv.classList.add('hidden');
+                                        }
+                                        recipientNameInput.removeEventListener('input', removeError);
+                                    };
+                                    recipientNameInput.addEventListener('input', removeError, { once: true });
+                                }
+                                
+                                // Scroll to recipient name field
+                                recipientNameInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                return;
+                            } else {
+                                // Hide error message if recipient name is available
+                                const errorDiv = document.getElementById('recipient-name-error');
+                                if (errorDiv) {
+                                    errorDiv.classList.add('hidden');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error checking recipient name:', error);
+                            hideLoading();
+                            // Continue if check fails (don't block user)
+                        }
+                    }
+                    
                     // Show loading while saving
                     showLoading('Saving Progress...', 'Saving your data and images');
                     
@@ -1628,11 +1715,15 @@
             const logoUrl = "{{ asset('assets/logo.png') }}";
             
             async function updatePreview() {
-                // Always ensure images are loaded from database first (source of truth)
-                const draftId = currentDraftId || localStorage.getItem('draftId');
-                if (draftId && (!cachedDraftImages.heading_images || cachedDraftImages.heading_images.length === 0)) {
-                    console.log('📥 Cache empty in updatePreview, fetching from DATABASE...');
-                    await loadDraftImages();
+                // Only load from database if not cleared for new page
+                if (!imagesClearedForNewPage) {
+                    const draftId = currentDraftId || localStorage.getItem('draftId');
+                    if (draftId && (!cachedDraftImages.heading_images || cachedDraftImages.heading_images.length === 0)) {
+                        console.log('📥 Cache empty in updatePreview, fetching from DATABASE...');
+                        await loadDraftImages();
+                    }
+                } else {
+                    console.log('⏭️ Skipping database load - images cleared for new page');
                 }
                 
                 const previewContent = document.getElementById('preview-content');
@@ -1683,51 +1774,80 @@
                 previewContent.style.backgroundColor = validBgColor;
                 previewContent.style.transition = 'background-color 0.5s ease';
                 
-                // Get all images directly from database cache (source of truth)
+                // Get images from DOM first (includes base64/uploading images)
                 let headingImages = [];
-                if (cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) {
-                    headingImages = cachedDraftImages.heading_images.map(path => {
-                        // Keep Cloudflare R2 URLs as-is (full URLs)
-                        if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
-                            return path;
+                const headingImagesPreview = document.getElementById('heading-images-preview');
+                if (headingImagesPreview && headingImagesPreview.children.length > 0) {
+                    Array.from(headingImagesPreview.children).forEach(container => {
+                        const img = container.querySelector('img');
+                        if (img && img.src) {
+                            headingImages.push(img.src);
                         }
-                        // Handle local storage paths
-                        if (path && path.startsWith('/storage')) {
-                            return path;
-                        }
-                        // Relative paths
-                        if (path) {
-                            return `/storage/${path}`;
-                        }
-                        return null;
-                    }).filter(Boolean);
-                    console.log('📸 Heading images from DATABASE:', headingImages);
+                    });
                 }
                 
                 let additionalImages = [];
-                if (cachedDraftImages.images && cachedDraftImages.images.length > 0) {
-                    additionalImages = cachedDraftImages.images.map(path => {
-                        // Keep Cloudflare R2 URLs as-is (full URLs)
+                const imagesPreview = document.getElementById('images-preview');
+                if (imagesPreview && imagesPreview.children.length > 0) {
+                    Array.from(imagesPreview.children).forEach(container => {
+                        const img = container.querySelector('img');
+                        if (img && img.src) {
+                            additionalImages.push(img.src);
+                        }
+                    });
+                }
+                
+                // If no images in DOM, fall back to database cache (but only if not cleared for new page)
+                if (headingImages.length === 0 && !imagesClearedForNewPage && cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) {
+                    headingImages = cachedDraftImages.heading_images.map(path => {
                         if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
                             return path;
                         }
-                        // Handle local storage paths
                         if (path && path.startsWith('/storage')) {
                             return path;
                         }
-                        // Relative paths
                         if (path) {
                             return `/storage/${path}`;
                         }
                         return null;
                     }).filter(Boolean);
-                    console.log('📸 Additional images from DATABASE:', additionalImages);
+                }
+                
+                if (additionalImages.length === 0 && !imagesClearedForNewPage && cachedDraftImages.images && cachedDraftImages.images.length > 0) {
+                    additionalImages = cachedDraftImages.images.map(path => {
+                        if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
+                            return path;
+                        }
+                        if (path && path.startsWith('/storage')) {
+                            return path;
+                        }
+                        if (path) {
+                            return `/storage/${path}`;
+                        }
+                        return null;
+                    }).filter(Boolean);
                 }
                 
                 console.log('📸 All images for preview:', { heading: headingImages.length, additional: additionalImages.length, total: headingImages.length + additionalImages.length });
                 
                 // Combine all images
                 const allImages = [...headingImages, ...additionalImages];
+                
+                // If images were cleared for new page, ensure empty array
+                if (imagesClearedForNewPage && allImages.length === 0) {
+                    // Clear any existing gallery from preview
+                    const existingGallery = previewWrapper.querySelector('.preview-gallery-container');
+                    if (existingGallery) {
+                        existingGallery.remove();
+                    }
+                    const existingGalleryItems = previewWrapper.querySelectorAll('.preview-gallery-item');
+                    existingGalleryItems.forEach(item => item.remove());
+                    // Show placeholder
+                    if (!previewWrapper.querySelector('#preview-placeholder')) {
+                        previewWrapper.innerHTML = '<div id="preview-placeholder" class="text-center text-gray-500 dark:text-gray-400 p-8">Preview will appear here</div>';
+                    }
+                    return; // Exit early - no images to show
+                }
                 
                 console.log('📸 Final allImages array:', allImages);
                 console.log('📸 Image URLs:', allImages.map((url, idx) => `${idx + 1}: ${url}`));
@@ -2156,6 +2276,33 @@
                                         // Escape the final URL for HTML
                                         const finalEscapedSrc = imageUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                                         
+                                        // Check if image is base64 (uploading)
+                                        const isUploading = imgSrc.startsWith('data:image');
+                                        
+                                        if (isUploading) {
+                                            // Show uploading state
+                                            return `
+                                            <div class="preview-gallery-item" data-index="${index}" style="animation-delay: ${index * 0.05}s; background: #1e293b; position: relative; overflow: hidden; min-height: 100px; display: flex; align-items: center; justify-content: center;">
+                                                <div style="text-align: center; z-index: 2;">
+                                                    <svg class="animate-spin" style="width: 2rem; height: 2rem; color: #ff6b6b; margin: 0 auto 0.5rem;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle style="opacity: 0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path style="opacity: 0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    <div style="color: #cbd5e1; font-size: 0.75rem; font-weight: 500;">Uploading...</div>
+                                                </div>
+                                                <img src="${finalEscapedSrc}" 
+                                                     alt="Memory ${index + 1}" 
+                                                     loading="eager" 
+                                                     style="width:100%;height:100%;object-fit:cover;display:block;position:absolute;top:0;left:0;z-index:1;background:#1e293b;opacity:0;transition:opacity 0.3s ease;"
+                                                     ${crossoriginAttr}
+                                                     onload="this.style.opacity='1'; const parent = this.parentElement; const loadingDiv = parent.querySelector('div'); if(loadingDiv) loadingDiv.style.display='none'; const overlay = parent.querySelector('.preview-gallery-item-overlay'); if(overlay) overlay.style.display='flex';">
+                                                <div class="preview-gallery-item-overlay" style="display:none;">
+                                                    <div class="preview-gallery-item-badge">Memory ${index + 1}</div>
+                                                </div>
+                                            </div>
+                                        `;
+                                        }
+                                        
                                         return `
                                         <div class="preview-gallery-item" data-index="${index}" style="animation-delay: ${index * 0.05}s; background: #1e293b; position: relative; overflow: hidden; min-height: 100px;">
                                             <img src="${finalEscapedSrc}" 
@@ -2286,24 +2433,189 @@
                 updatePreview();
             };
             
+            // Track previous page name to detect when a new page name is entered
+            let previousPageName = '';
+            // Flag to prevent restoring images after clearing for new page
+            let imagesClearedForNewPage = false;
+            
+            // Function to clear all images when starting a new page
+            function clearAllImagesForNewPage() {
+                console.log('🆕 New page name detected - clearing all images');
+                
+                // Set flag to prevent restoration
+                imagesClearedForNewPage = true;
+                
+                // Clear cached images
+                cachedDraftImages.heading_images = [];
+                cachedDraftImages.images = [];
+                
+                // Clear base64 maps
+                base64ToUrlMap.clear();
+                uploadedBase64Images.clear();
+                
+                // Clear DOM previews
+                const headingImagesPreview = document.getElementById('heading-images-preview');
+                const imagesPreview = document.getElementById('images-preview');
+                if (headingImagesPreview) headingImagesPreview.innerHTML = '';
+                if (imagesPreview) imagesPreview.innerHTML = '';
+                
+                // Clear preview content - remove all images from preview
+                const previewContent = document.getElementById('preview-content');
+                if (previewContent) {
+                    const previewWrapper = document.getElementById('preview-wrapper');
+                    if (previewWrapper) {
+                        // Clear the entire preview wrapper to remove all images
+                        previewWrapper.innerHTML = '<div id="preview-placeholder" class="text-center text-gray-500 dark:text-gray-400 p-8">Preview will appear here</div>';
+                    }
+                    
+                    // Also clear any image galleries in the preview
+                    const previewGalleries = previewContent.querySelectorAll('.preview-gallery, .preview-gallery-item, .memory-gallery');
+                    previewGalleries.forEach(gallery => gallery.remove());
+                }
+                
+                // Clear localStorage images
+                const savedData = localStorage.getItem('memoryFormData');
+                if (savedData) {
+                    try {
+                        const formData = JSON.parse(savedData);
+                        formData.headingImages = [];
+                        formData.additionalImages = [];
+                        localStorage.setItem('memoryFormData', JSON.stringify(formData));
+                    } catch(e) {
+                        console.error('Error clearing localStorage images:', e);
+                    }
+                }
+                
+                // Update image counts
+                if (typeof updateImageCount === 'function') {
+                    updateImageCount();
+                }
+                
+                // Update preview (this will now show empty preview since cache is cleared)
+                updatePreview();
+                
+                console.log('✅ All images cleared for new page');
+            }
+            
             // Page name validation and preview update
             const pageNameInput = document.getElementById('page-name');
             if (pageNameInput) {
+                // Store initial page name
+                previousPageName = pageNameInput.value?.trim() || '';
+                
+                // Use debounce to avoid clearing on every keystroke
+                let pageNameChangeTimeout = null;
+                
                 pageNameInput.addEventListener('input', function(e) {
                     // Remove accents and special characters, keep only letters, numbers, and spaces
                     this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '');
+                    
+                    const currentPageName = this.value.trim();
+                    
+                    // Clear any pending timeout
+                    if (pageNameChangeTimeout) {
+                        clearTimeout(pageNameChangeTimeout);
+                    }
+                    
+                    // Debounce the check - wait 500ms after user stops typing
+                    pageNameChangeTimeout = setTimeout(() => {
+                        // Check if page name actually changed (not just editing the same name)
+                        if (previousPageName && currentPageName && currentPageName !== previousPageName) {
+                            // User changed to a different page name - clear all old images
+                            console.log('📝 Page name changed from "' + previousPageName + '" to "' + currentPageName + '" - clearing images');
+                            clearAllImagesForNewPage();
+                            // Reset draft ID since this is a new page
+                            currentDraftId = null;
+                            localStorage.removeItem('draftId');
+                            previousPageName = currentPageName;
+                            // Reset flag after a short delay to allow new images to be added
+                            setTimeout(() => {
+                                imagesClearedForNewPage = false;
+                            }, 1000);
+                        } else if (!previousPageName && currentPageName) {
+                            // User entered a name for the first time (from empty to non-empty)
+                            // Always clear existing images when entering first page name (fresh start)
+                            const headingImagesPreview = document.getElementById('heading-images-preview');
+                            const imagesPreview = document.getElementById('images-preview');
+                            const hasImages = (headingImagesPreview && headingImagesPreview.children.length > 0) || 
+                                            (imagesPreview && imagesPreview.children.length > 0) ||
+                                            (cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) ||
+                                            (cachedDraftImages.images && cachedDraftImages.images.length > 0);
+                            if (hasImages) {
+                                console.log('📝 First page name entered with existing images - clearing images');
+                                clearAllImagesForNewPage();
+                                currentDraftId = null;
+                                localStorage.removeItem('draftId');
+                                setTimeout(() => {
+                                    imagesClearedForNewPage = false;
+                                }, 1000);
+                            }
+                            previousPageName = currentPageName;
+                        } else if (previousPageName && !currentPageName) {
+                            // User cleared the page name - clear images
+                            console.log('📝 Page name cleared - clearing images');
+                            clearAllImagesForNewPage();
+                            currentDraftId = null;
+                            localStorage.removeItem('draftId');
+                            previousPageName = '';
+                            setTimeout(() => {
+                                imagesClearedForNewPage = false;
+                            }, 1000);
+                        }
+                    }, 500); // Wait 500ms after user stops typing
+                    
                     updatePreview();
+                });
+                
+                // Also check on blur (when user leaves the field) - immediate check
+                pageNameInput.addEventListener('blur', function() {
+                    // Clear any pending timeout
+                    if (pageNameChangeTimeout) {
+                        clearTimeout(pageNameChangeTimeout);
+                        pageNameChangeTimeout = null;
+                    }
+                    
+                    const currentPageName = this.value.trim();
+                    if (previousPageName && currentPageName && currentPageName !== previousPageName) {
+                        // Page name changed - clear images
+                        console.log('📝 Page name changed on blur from "' + previousPageName + '" to "' + currentPageName + '" - clearing images');
+                        clearAllImagesForNewPage();
+                        currentDraftId = null;
+                        localStorage.removeItem('draftId');
+                        // Reset flag after a short delay
+                        setTimeout(() => {
+                            imagesClearedForNewPage = false;
+                        }, 1000);
+                    }
+                    previousPageName = currentPageName;
                 });
             }
             
             // Content fields - update preview on input
-            ['heading', 'subheading', 'message', 'from', 'youtube-url', 'recipient-name'].forEach(fieldId => {
+            ['heading', 'subheading', 'message', 'from', 'youtube-url'].forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field) {
                     field.addEventListener('input', updatePreview);
                     field.addEventListener('change', updatePreview);
                 }
             });
+            
+            // Recipient name field - update preview and handle validation
+            const recipientNameInput = document.getElementById('recipient-name');
+            if (recipientNameInput) {
+                recipientNameInput.addEventListener('input', updatePreview);
+                recipientNameInput.addEventListener('change', updatePreview);
+                
+                // Clear error styling when user starts typing
+                recipientNameInput.addEventListener('input', function() {
+                    const errorDiv = document.getElementById('recipient-name-error');
+                    if (errorDiv && !errorDiv.classList.contains('hidden')) {
+                        this.classList.remove('border-red-500');
+                        this.classList.add('border-gray-700', 'focus:border-[#ff6b6b]');
+                        errorDiv.classList.add('hidden');
+                    }
+                });
+            }
             
             // Color fields - update preview on change
             const themeColorInput = document.getElementById('theme-color');
@@ -2599,17 +2911,37 @@
                             // Remove from DOM first
                             imgContainer.remove();
                             
-                            // Remove from cached images to prevent restoration
+                            // Remove from all caches and maps to prevent restoration
+                            const normalizeUrl = (u) => u ? u.split('?')[0].replace(/\/$/, '') : '';
+                            const normalizedImageUrl = normalizeUrl(imageUrl);
+                            
+                            // Remove from cached images
                             if (cachedDraftImages.heading_images) {
                                 cachedDraftImages.heading_images = cachedDraftImages.heading_images.filter(url => {
-                                    // Normalize URLs for comparison
-                                    const normalizeUrl = (u) => u ? u.split('?')[0].replace(/\/$/, '') : '';
                                     const normalizedUrl = normalizeUrl(url);
-                                    const normalizedImageUrl = normalizeUrl(imageUrl);
-                                    return normalizedUrl !== normalizedImageUrl && url !== imageUrl;
+                                    return normalizedUrl !== normalizedImageUrl && url !== imageUrl && 
+                                           !url.includes(normalizedImageUrl) && !normalizedImageUrl.includes(normalizedUrl);
                                 });
                                 console.log('🗑️ Removed image from cached heading_images, remaining:', cachedDraftImages.heading_images.length);
                             }
+                            
+                            // Remove from base64ToUrlMap
+                            base64ToUrlMap.forEach((value, key) => {
+                                const normalizedValue = normalizeUrl(value);
+                                if (normalizedValue === normalizedImageUrl || value === imageUrl || 
+                                    value.includes(imageUrl) || imageUrl.includes(value)) {
+                                    base64ToUrlMap.delete(key);
+                                    console.log('🗑️ Removed from base64ToUrlMap:', key.substring(0, 50));
+                                }
+                            });
+                            
+                            // Remove from uploadedBase64Images
+                            uploadedBase64Images.forEach(base64Img => {
+                                if (base64Img === imageUrl || base64Img.includes(imageUrl) || imageUrl.includes(base64Img)) {
+                                    uploadedBase64Images.delete(base64Img);
+                                    console.log('🗑️ Removed from uploadedBase64Images');
+                                }
+                            });
                             
                             // Delete from Cloudflare and database if it's already uploaded (not base64)
                             if (imageUrl && !imageUrl.startsWith('data:image') && (imageUrl.startsWith('http') || imageUrl.startsWith('/storage'))) {
@@ -2626,12 +2958,20 @@
                             updateImageNumbers();
                             saveFormData();
                             saveImagesToLocalStorage();
-                            updatePreview();
                             
-                            // Save draft after deletion to update database
+                            // Update preview immediately
+                            setTimeout(() => {
+                                updatePreview();
+                            }, 100);
+                            
+                            // Save draft after deletion to update database (this will send updated image list without removed image)
                             setTimeout(async () => {
                                 await saveDraftToBackend();
                                 console.log('✅ Draft updated after image deletion');
+                                // Update preview again after save
+                                setTimeout(() => {
+                                    updatePreview();
+                                }, 200);
                             }, 200);
                         });
                         
@@ -2653,22 +2993,25 @@
                         // Save images to localStorage immediately
                         saveImagesToLocalStorage();
                         
+                        // Update preview immediately to show uploading state
+                        setTimeout(() => {
+                            updatePreview();
+                        }, 100);
+                        
                         // Save draft immediately to DATABASE when image is uploaded (with delay to ensure image is in DOM)
                         setTimeout(() => {
                             saveDraftToBackend().then(() => {
                                 console.log('✅ Images saved to DATABASE successfully');
                                 // Update image count after save
                                 updateImageCount();
+                                // Update preview again after upload completes
+                                setTimeout(() => {
+                                    updatePreview();
+                                }, 200);
                             }).catch(err => {
                                 console.error('❌ Error saving images to DATABASE:', err);
                             });
                         }, 300);
-                        
-                        // Force preview update immediately
-                        setTimeout(() => {
-                            updatePreview();
-                        // Gallery preview updated
-                        }, 200);
                     }).catch(function(error) {
                         console.error('Error compressing image:', error);
                         // Remove loading spinner and container on error
@@ -2707,6 +3050,11 @@
             
             // Load draft images from backend DATABASE
             async function loadDraftImages() {
+                // Don't load images if they were cleared for a new page
+                if (imagesClearedForNewPage) {
+                    console.log('⏭️ Skipping loadDraftImages - images cleared for new page');
+                    return Promise.resolve();
+                }
                 let draftId = currentDraftId || localStorage.getItem('draftId');
                 
                 // If no draft ID, try to get the latest draft from database
@@ -2826,6 +3174,23 @@
                                     const isEmpty = headingImagesPreview.children.length === 0;
                                     let imagesMatch = false;
                                     
+                                    // If DOM has images, prioritize DOM state (user may have removed images)
+                                    // Only restore from database if DOM is completely empty
+                                    if (!isEmpty) {
+                                        console.log('📥 DOM has images, not overwriting. DOM is source of truth.');
+                                        // Update cache with current DOM state instead of database state
+                                        const currentDomImages = Array.from(headingImagesPreview.querySelectorAll('img')).map(img => img.src);
+                                        cachedDraftImages.heading_images = currentDomImages.map(src => {
+                                            // Convert full URLs back to relative paths for cache
+                                            if (src.startsWith(window.location.origin)) {
+                                                return src.replace(window.location.origin, '');
+                                            }
+                                            return src;
+                                        });
+                                        console.log('📥 Updated cache with current DOM state:', cachedDraftImages.heading_images.length, 'images');
+                                        return; // Don't restore from database if DOM has images
+                                    }
+                                    
                                     if (!isEmpty && existingImages.length === draftImagePaths.length && draftImagePaths.length > 0) {
                                         // Check if all URLs match (allowing for slight differences)
                                         imagesMatch = existingImages.every((src, idx) => {
@@ -2846,18 +3211,21 @@
                                         });
                                     }
                                     
-                                    // Always restore images from database (source of truth)
-                                    // Don't skip restoration - always use database values
-                                    console.log('🔄 Restoring', draftImagePaths.length, 'images from DATABASE:', { 
-                                        isEmpty, 
-                                        imagesMatch, 
-                                        existingCount: existingImages.length, 
-                                        draftCount: draftImagePaths.length,
-                                        forceRestore: true
-                                    });
-                                    
-                                    // Clear existing
-                                    headingImagesPreview.innerHTML = '';
+                                    // Only restore from database if DOM is empty (to prevent overwriting user's removals)
+                                    if (isEmpty) {
+                                        console.log('🔄 Restoring', draftImagePaths.length, 'images from DATABASE (DOM was empty):', { 
+                                            isEmpty, 
+                                            imagesMatch, 
+                                            existingCount: existingImages.length, 
+                                            draftCount: draftImagePaths.length
+                                        });
+                                        
+                                        // Clear existing (should be empty already)
+                                        headingImagesPreview.innerHTML = '';
+                                    } else {
+                                        console.log('⏭️ Skipping restoration - DOM has images, user may have removed some');
+                                        return; // Don't restore if DOM has images
+                                    }
                                     
                                     // Add images from draft with premium gallery format
                                     headingImages.forEach((imagePath, index) => {
@@ -3003,12 +3371,28 @@
                                 });
                             }
                             
-                            // Restore additional images
+                            // Restore additional images (only if DOM is empty)
                             if (imagesMemories && Array.isArray(imagesMemories) && imagesMemories.length > 0) {
                                 const imagesPreview = document.getElementById('images-preview');
                                 if (imagesPreview) {
+                                    // If DOM has images, prioritize DOM state (user may have removed images)
+                                    if (imagesPreview.children.length > 0) {
+                                        console.log('📥 DOM has additional images, not overwriting. DOM is source of truth.');
+                                        // Update cache with current DOM state instead of database state
+                                        const currentDomImages = Array.from(imagesPreview.querySelectorAll('img')).map(img => img.src);
+                                        cachedDraftImages.images = currentDomImages.map(src => {
+                                            // Convert full URLs back to relative paths for cache
+                                            if (src.startsWith(window.location.origin)) {
+                                                return src.replace(window.location.origin, '');
+                                            }
+                                            return src;
+                                        });
+                                        console.log('📥 Updated cache with current DOM state:', cachedDraftImages.images.length, 'images');
+                                        return; // Don't restore from database if DOM has images
+                                    }
+                                    
                                     console.log('📥 Restoring', imagesMemories.length, 'additional images to DOM');
-                                    // Clear existing
+                                    // Clear existing (should be empty already, but just in case)
                                     imagesPreview.innerHTML = '';
                                     
                                     // Add images from draft
@@ -3128,6 +3512,50 @@
             async function initializePage() {
                 // Wait a bit for DOM to be fully ready
                 setTimeout(async () => {
+                    // Check if starting a new photo (no draft ID and no page name)
+                    const pageNameInput = document.getElementById('page-name');
+                    const pageName = pageNameInput?.value?.trim() || '';
+                    
+                    // Set initial previousPageName for tracking (if variable exists)
+                    if (pageNameInput && typeof previousPageName !== 'undefined') {
+                        previousPageName = pageName;
+                        console.log('📝 Initial page name set:', previousPageName);
+                    }
+                    
+                    const hasNoDraft = !currentDraftId && !localStorage.getItem('draftId');
+                    const hasNoPageName = !pageName;
+                    
+                    // If starting new photo, clear preview and images
+                    if (hasNoDraft && hasNoPageName) {
+                        console.log('🆕 Starting new photo - clearing preview and images');
+                        // Clear cached images
+                        cachedDraftImages.heading_images = [];
+                        cachedDraftImages.images = [];
+                        // Clear DOM previews
+                        const headingImagesPreview = document.getElementById('heading-images-preview');
+                        const imagesPreview = document.getElementById('images-preview');
+                        if (headingImagesPreview) headingImagesPreview.innerHTML = '';
+                        if (imagesPreview) imagesPreview.innerHTML = '';
+                        // Clear preview content
+                        const previewContent = document.getElementById('preview-content');
+                        if (previewContent) {
+                            const previewWrapper = document.getElementById('preview-wrapper');
+                            if (previewWrapper) {
+                                previewWrapper.innerHTML = '<div id="preview-placeholder" class="text-center text-gray-500 dark:text-gray-400 p-8">Preview will appear here</div>';
+                            }
+                        }
+                        // Clear localStorage images
+                        const savedData = localStorage.getItem('memoryFormData');
+                        if (savedData) {
+                            try {
+                                const formData = JSON.parse(savedData);
+                                formData.headingImages = [];
+                                formData.additionalImages = [];
+                                localStorage.setItem('memoryFormData', JSON.stringify(formData));
+                            } catch(e) {}
+                        }
+                    }
+                    
                     restoreFormData();
                     setupAutoSave();
                     // Always load images from database first (source of truth)
@@ -3305,19 +3733,92 @@
                         removeBtn.type = 'button';
                         removeBtn.className = 'absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity';
                         removeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-                        removeBtn.addEventListener('click', function() {
+                        removeBtn.addEventListener('click', async function() {
+                            const imageUrl = img.src;
+                            
+                            // Remove from DOM first
                             imgContainer.remove();
+                            
+                            // Remove from all caches and maps to prevent restoration
+                            const normalizeUrl = (u) => u ? u.split('?')[0].replace(/\/$/, '') : '';
+                            const normalizedImageUrl = normalizeUrl(imageUrl);
+                            
+                            // Remove from cached images
+                            if (cachedDraftImages.images) {
+                                cachedDraftImages.images = cachedDraftImages.images.filter(url => {
+                                    const normalizedUrl = normalizeUrl(url);
+                                    return normalizedUrl !== normalizedImageUrl && url !== imageUrl && 
+                                           !url.includes(normalizedImageUrl) && !normalizedImageUrl.includes(normalizedUrl);
+                                });
+                                console.log('🗑️ Removed image from cached images, remaining:', cachedDraftImages.images.length);
+                            }
+                            
+                            // Remove from base64ToUrlMap
+                            base64ToUrlMap.forEach((value, key) => {
+                                const normalizedValue = normalizeUrl(value);
+                                if (normalizedValue === normalizedImageUrl || value === imageUrl || 
+                                    value.includes(imageUrl) || imageUrl.includes(value)) {
+                                    base64ToUrlMap.delete(key);
+                                    console.log('🗑️ Removed from base64ToUrlMap:', key.substring(0, 50));
+                                }
+                            });
+                            
+                            // Remove from uploadedBase64Images
+                            uploadedBase64Images.forEach(base64Img => {
+                                if (base64Img === imageUrl || base64Img.includes(imageUrl) || imageUrl.includes(base64Img)) {
+                                    uploadedBase64Images.delete(base64Img);
+                                    console.log('🗑️ Removed from uploadedBase64Images');
+                                }
+                            });
+                            
+                            // Delete from Cloudflare and database if it's already uploaded (not base64)
+                            if (imageUrl && !imageUrl.startsWith('data:image') && (imageUrl.startsWith('http') || imageUrl.startsWith('/storage'))) {
+                                try {
+                                    await deleteImageFromStorage(imageUrl);
+                                    console.log('✅ Image deleted from storage and database:', imageUrl.substring(0, 50) + '...');
+                                } catch (error) {
+                                    console.error('Failed to delete image from storage:', error);
+                                }
+                            }
+                            
                             saveFormData();
-                            updatePreview();
+                            saveImagesToLocalStorage();
+                            
+                            // Update preview immediately
+                            setTimeout(() => {
+                                updatePreview();
+                            }, 100);
+                            
+                            // Save draft after deletion to update database
+                            setTimeout(async () => {
+                                await saveDraftToBackend();
+                                console.log('✅ Draft updated after image deletion');
+                                // Update preview again after save
+                                setTimeout(() => {
+                                    updatePreview();
+                                }, 200);
+                            }, 200);
                         });
                         
                         imgContainer.appendChild(img);
                         imgContainer.appendChild(removeBtn);
                         
                         saveFormData();
+                        
+                        // Update preview immediately to show uploading state
+                        setTimeout(() => {
+                            updatePreview();
+                        }, 100);
+                        
                         // Save draft immediately when image is uploaded
-                        saveDraftToBackend();
-                        setTimeout(updatePreview, 100);
+                        saveDraftToBackend().then(() => {
+                            // Update preview again after upload completes
+                            setTimeout(() => {
+                                updatePreview();
+                            }, 200);
+                        }).catch(err => {
+                            console.error('Error saving draft:', err);
+                        });
                     }).catch(function(error) {
                         console.error('Error compressing image:', error);
                         alert('Failed to process image. Please try again.');
@@ -3469,6 +3970,51 @@
                     });
                     
                     const result = await response.json();
+                    
+                    // Handle validation errors
+                    if (result.errors) {
+                        hideLoading();
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                        
+                        // Handle recipient name validation error
+                        if (result.errors.recipient_name) {
+                            const errorDiv = document.getElementById('recipient-name-error');
+                            const errorText = document.getElementById('recipient-name-error-text');
+                            const recipientInput = document.getElementById('recipient-name');
+                            
+                            if (errorDiv && errorText) {
+                                errorText.textContent = result.errors.recipient_name[0] || 'This recipient name has already been taken. Please choose a different name.';
+                                errorDiv.classList.remove('hidden');
+                            }
+                            
+                            if (recipientInput) {
+                                recipientInput.classList.add('border-red-500');
+                                recipientInput.classList.remove('border-gray-700', 'focus:border-[#ff6b6b]');
+                                recipientInput.focus();
+                                
+                                // Remove error styling when user starts typing
+                                const removeError = function() {
+                                    recipientInput.classList.remove('border-red-500');
+                                    recipientInput.classList.add('border-gray-700', 'focus:border-[#ff6b6b]');
+                                    if (errorDiv) {
+                                        errorDiv.classList.add('hidden');
+                                    }
+                                    recipientInput.removeEventListener('input', removeError);
+                                };
+                                recipientInput.addEventListener('input', removeError, { once: true });
+                            }
+                            
+                            // Scroll to recipient name field
+                            recipientInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            return;
+                        }
+                        
+                        // Handle other validation errors
+                        const errorMessages = Object.values(result.errors).flat().join('\n');
+                        alert('Validation errors:\n' + errorMessages);
+                        return;
+                    }
                     
                     if (result.success) {
                         // Show success message with WhatsApp contact only (no URL)

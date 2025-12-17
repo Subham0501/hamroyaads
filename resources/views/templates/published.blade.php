@@ -1100,10 +1100,10 @@
         <!-- Header -->
         <header class="gallery-header">
             <div class="header-content">
-                <div class="header-logo">
+                <a href="{{ url('/') }}" class="header-logo hover:opacity-80 transition-opacity cursor-pointer">
                     <img src="{{ asset('assets/logo.png') }}" alt="Hamro Yaad" class="h-12 md:h-16 w-auto">
                     <span class="header-logo-text">Hamro Yaad</span>
-                </div>
+                </a>
                 <div class="view-controls">
                     <button class="view-btn active" data-view="grid" title="Grid View">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
