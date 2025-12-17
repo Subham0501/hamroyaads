@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class CustomizedTemplateController extends Controller
 {
@@ -301,6 +302,9 @@ class CustomizedTemplateController extends Controller
             'has_pin' => $request->has('pin'),
         ]);
         
+        // Get draft_id early to use in validation
+        $draftId = $request->input('draft_id');
+        
         try {
         $validated = $request->validate([
             'template' => 'nullable|string',
@@ -331,7 +335,14 @@ class CustomizedTemplateController extends Controller
             'images.memories.*' => 'nullable|string',
             'status' => 'nullable|string|in:draft,published,archived',
             'slug' => 'nullable|string|max:255',
-            'recipient_name' => 'required|string|max:255',
+            'recipient_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('customized_templates', 'recipient_name')
+                    ->where('user_id', Auth::id())
+                    ->ignore($draftId),
+            ],
             'pin' => 'required|string|size:5|regex:/^[0-9]{5}$/',
         ]);
 
@@ -358,7 +369,6 @@ class CustomizedTemplateController extends Controller
         $validated['status'] = 'draft'; // Keep as draft even after PIN
         
         // Check if draft_id exists - update existing draft instead of creating new
-        $draftId = $request->input('draft_id');
         $existingDraft = null;
         if ($draftId) {
             $existingDraft = CustomizedTemplate::where('id', $draftId)
@@ -1296,22 +1306,38 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
-     * Admin: Show all draft templates pending approval.
+     * Admin: Show all templates with filtering options.
      */
-    public function adminIndex()
+    public function adminIndex(Request $request)
     {
         // Check if user is admin
         if (!Auth::check() || !Auth::user()->is_admin) {
             abort(403, 'Unauthorized access');
         }
 
-        $draftTemplates = CustomizedTemplate::where('status', 'draft')
-            ->with('user')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $status = $request->get('status', 'draft'); // Default to draft
+        
+        $query = CustomizedTemplate::with('user');
+        
+        // Filter by status
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+        
+        $templates = $query->orderBy('created_at', 'desc')->get();
+        
+        // Get stats
+        $stats = [
+            'draft' => CustomizedTemplate::where('status', 'draft')->count(),
+            'published' => CustomizedTemplate::where('status', 'published')->count(),
+            'archived' => CustomizedTemplate::where('status', 'archived')->count(),
+            'total' => CustomizedTemplate::count(),
+        ];
 
         return view('admin.templates.index', [
-            'templates' => $draftTemplates,
+            'templates' => $templates,
+            'stats' => $stats,
+            'currentStatus' => $status,
         ]);
     }
 
@@ -1424,5 +1450,62 @@ class CustomizedTemplateController extends Controller
             'success' => true,
             'message' => 'Template rejected successfully!',
         ]);
+    }
+
+    /**
+     * Admin: Delete a template and all associated images from Cloudflare.
+     */
+    public function adminDelete(Request $request, $id)
+    {
+        // Check if user is admin
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access',
+            ], 403);
+        }
+
+        $template = CustomizedTemplate::findOrFail($id);
+
+        try {
+            // Delete all associated images from Cloudflare/storage
+            if ($template->heading_images && is_array($template->heading_images)) {
+                foreach ($template->heading_images as $imageUrl) {
+                    if (is_string($imageUrl) && !empty($imageUrl)) {
+                        $this->deleteImageFile($imageUrl);
+                    }
+                }
+            }
+
+            if ($template->images && is_array($template->images)) {
+                $this->deleteImages($template->images);
+            }
+
+            // Delete the template record
+            $templateId = $template->id;
+            $template->delete();
+
+            \Log::info('Template deleted by admin', [
+                'template_id' => $templateId,
+                'admin_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Template and all associated images deleted successfully!',
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to delete template', [
+                'template_id' => $id,
+                'admin_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete template: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

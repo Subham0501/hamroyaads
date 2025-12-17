@@ -398,6 +398,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/templates/{id}', [CustomizedTemplateController::class, 'adminShow'])->name('templates.show');
         Route::post('/templates/{id}/approve', [CustomizedTemplateController::class, 'adminApprove'])->name('templates.approve');
         Route::post('/templates/{id}/reject', [CustomizedTemplateController::class, 'adminReject'])->name('templates.reject');
+        Route::delete('/templates/{id}', [CustomizedTemplateController::class, 'adminDelete'])->name('templates.delete');
     });
 });
 

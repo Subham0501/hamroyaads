@@ -29,17 +29,27 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-1">Recipient Name</label>
-                            <p class="text-lg text-gray-900 dark:text-white">{{ $template->recipient_name }}</p>
+                            <p class="text-lg text-gray-900 dark:text-white">{{ $template->recipient_name ?? 'N/A' }}</p>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-1">PIN</label>
-                            <p class="text-lg font-mono text-gray-900 dark:text-white">{{ $template->pin }}</p>
+                            <p class="text-lg font-mono text-gray-900 dark:text-white">{{ $template->pin ?? 'N/A' }}</p>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-1">Template Type</label>
                             <p class="text-lg text-gray-900 dark:text-white">{{ $template->template }}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-1">Page Name</label>
+                            <p class="text-lg text-gray-900 dark:text-white">{{ $template->page_name ?? 'N/A' }}</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-1">Slug</label>
+                            <p class="text-sm font-mono text-gray-600 dark:text-[#cbd5e1] break-all">{{ $template->slug ?? 'Not generated yet' }}</p>
                         </div>
                         
                         <div>
@@ -55,9 +65,19 @@
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-1">Status</label>
-                            <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                {{ ucfirst($template->status) }}
-                            </span>
+                            @if($template->status === 'draft')
+                                <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                    Draft
+                                </span>
+                            @elseif($template->status === 'published')
+                                <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                    Published
+                                </span>
+                            @else
+                                <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                    Archived
+                                </span>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -67,18 +87,31 @@
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Actions</h2>
                     
                     <div class="space-y-3">
+                        @if($template->status === 'draft')
                         <button onclick="approveTemplate({{ $template->id }})" class="w-full bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-colors">
                             Approve & Publish
                         </button>
                         <button onclick="rejectTemplate({{ $template->id }})" class="w-full bg-red-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-600 transition-colors">
                             Reject
                         </button>
+                        @endif
+                        
+                        <button onclick="deleteTemplate({{ $template->id }})" class="w-full bg-red-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-700 transition-colors border-2 border-red-700">
+                            Delete Template
+                        </button>
+                        
+                        @if($template->status === 'published' && $template->slug)
+                        <a href="{{ url('/' . $template->slug) }}" target="_blank" class="w-full bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors text-center block">
+                            View Live Template
+                        </a>
+                        @endif
                     </div>
                 </div>
             </div>
 
             <!-- Right Side - Template Preview -->
-            <div class="lg:col-span-2">
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Template Content -->
                 <div class="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-[#334155]">
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Template Content</h2>
                     
@@ -103,29 +136,122 @@
                             <p class="text-lg text-gray-900 dark:text-white">{{ $template->from ?? 'N/A' }}</p>
                         </div>
                         
-                        @if($template->images && count($template->images) > 0)
+                        @if($template->memory_date)
                         <div>
-                            <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-2">Images</label>
-                            <div class="grid grid-cols-2 gap-4">
-                                @if(isset($template->images['hero']))
-                                <div>
-                                    <p class="text-sm text-gray-600 dark:text-[#cbd5e1] mb-1">Hero Image</p>
-                                    <img src="{{ $template->images['hero'] }}" alt="Hero" class="w-full h-32 object-cover rounded-lg">
-                                </div>
-                                @endif
-                                @if(isset($template->images['section2']))
-                                <div>
-                                    <p class="text-sm text-gray-600 dark:text-[#cbd5e1] mb-1">Section 2 Image</p>
-                                    <img src="{{ $template->images['section2'] }}" alt="Section 2" class="w-full h-32 object-cover rounded-lg">
-                                </div>
-                                @endif
-                            </div>
+                            <label class="block text-sm font-semibold text-gray-600 dark:text-[#cbd5e1] mb-2">Memory Date</label>
+                            <p class="text-lg text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($template->memory_date)->format('M d, Y') }}</p>
                         </div>
                         @endif
                     </div>
                 </div>
+
+                <!-- Heading Images -->
+                @php
+                    $headingImages = $template->heading_images;
+                    if (is_string($headingImages)) {
+                        $headingImages = json_decode($headingImages, true) ?? [];
+                    }
+                    if (!is_array($headingImages)) {
+                        $headingImages = [];
+                    }
+                @endphp
+                
+                @if(count($headingImages) > 0)
+                <div class="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-[#334155]">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                        Heading Images 
+                        <span class="text-sm font-normal text-gray-500 dark:text-[#64748b]">({{ count($headingImages) }})</span>
+                    </h2>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        @foreach($headingImages as $index => $imageUrl)
+                            @php
+                                $finalUrl = $imageUrl;
+                                if (str_starts_with($imageUrl, 'http')) {
+                                    $finalUrl = $imageUrl;
+                                } elseif (str_starts_with($imageUrl, '/storage')) {
+                                    $finalUrl = asset($imageUrl);
+                                } else {
+                                    $finalUrl = asset('storage/' . $imageUrl);
+                                }
+                            @endphp
+                            <div class="relative group">
+                                <img src="{{ $finalUrl }}" alt="Heading Image {{ $index + 1 }}" 
+                                     class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-[#334155] hover:border-[#ff6b6b] transition-colors cursor-pointer"
+                                     onclick="openImageModal('{{ $finalUrl }}', 'Heading Image {{ $index + 1 }}')"
+                                     onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect fill=\'%23ddd\' width=\'100\' height=\'100\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%23999\'%3EImage%3C/text%3E%3C/svg%3E'">
+                                <div class="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                    #{{ $index + 1 }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <!-- Additional Images (Memories) -->
+                @php
+                    $images = $template->images;
+                    if (is_string($images)) {
+                        $images = json_decode($images, true) ?? [];
+                    }
+                    if (!is_array($images)) {
+                        $images = [];
+                    }
+                    $memories = $images['memories'] ?? [];
+                @endphp
+                
+                @if(count($memories) > 0)
+                <div class="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-[#334155]">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                        Memory Images 
+                        <span class="text-sm font-normal text-gray-500 dark:text-[#64748b]">({{ count($memories) }})</span>
+                    </h2>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        @foreach($memories as $index => $imageUrl)
+                            @php
+                                $finalUrl = $imageUrl;
+                                if (str_starts_with($imageUrl, 'http')) {
+                                    $finalUrl = $imageUrl;
+                                } elseif (str_starts_with($imageUrl, '/storage')) {
+                                    $finalUrl = asset($imageUrl);
+                                } else {
+                                    $finalUrl = asset('storage/' . $imageUrl);
+                                }
+                            @endphp
+                            <div class="relative group">
+                                <img src="{{ $finalUrl }}" alt="Memory Image {{ $index + 1 }}" 
+                                     class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 dark:border-[#334155] hover:border-[#ff6b6b] transition-colors cursor-pointer"
+                                     onclick="openImageModal('{{ $finalUrl }}', 'Memory Image {{ $index + 1 }}')"
+                                     onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect fill=\'%23ddd\' width=\'100\' height=\'100\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\' fill=\'%23999\'%3EImage%3C/text%3E%3C/svg%3E'">
+                                <div class="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                    #{{ $index + 1 }}
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                @if(count($headingImages) === 0 && count($memories) === 0)
+                <div class="bg-white dark:bg-[#1e293b] rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-[#334155]">
+                    <p class="text-gray-500 dark:text-[#64748b] text-center">No images uploaded for this template.</p>
+                </div>
+                @endif
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center" onclick="closeImageModal()">
+    <div class="relative max-w-7xl max-h-[90vh] p-4" onclick="event.stopPropagation()">
+        <button onclick="closeImageModal()" class="absolute top-4 right-4 text-white bg-black/50 hover:bg-black/70 rounded-full p-2 z-10">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+        <img id="modalImage" src="" alt="" class="max-w-full max-h-[90vh] rounded-lg">
+        <p id="modalCaption" class="text-white text-center mt-4"></p>
     </div>
 </div>
 
@@ -133,6 +259,27 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+function openImageModal(imageUrl, caption) {
+    document.getElementById('modalImage').src = imageUrl;
+    document.getElementById('modalCaption').textContent = caption;
+    document.getElementById('imageModal').classList.remove('hidden');
+    document.getElementById('imageModal').classList.add('flex');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal() {
+    document.getElementById('imageModal').classList.add('hidden');
+    document.getElementById('imageModal').classList.remove('flex');
+    document.body.style.overflow = '';
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeImageModal();
+    }
+});
+
 async function approveTemplate(id) {
     const result = await Swal.fire({
         title: 'Approve Template?',
@@ -233,6 +380,67 @@ async function rejectTemplate(id) {
                 icon: 'error',
                 title: 'Error',
                 text: error.message || 'Failed to reject template',
+                confirmButtonColor: '#ef4444'
+            });
+        }
+    }
+}
+
+async function deleteTemplate(id) {
+    const result = await Swal.fire({
+        title: 'Delete Template?',
+        html: '<p class="mb-2">This will permanently delete the template and <strong>all associated images from Cloudflare storage</strong>.</p><p class="text-red-600 dark:text-red-400 font-semibold">This action cannot be undone!</p>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true
+    });
+
+    if (result.isConfirmed) {
+        // Show loading
+        Swal.fire({
+            title: 'Deleting...',
+            text: 'Please wait while we delete the template and images from Cloudflare.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const response = await fetch(`/admin/templates/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Template Deleted!',
+                    text: 'Template and all associated images have been deleted successfully from Cloudflare.',
+                    confirmButtonColor: '#10b981',
+                    confirmButtonText: 'OK'
+                });
+                window.location.href = '{{ route("admin.templates.index") }}';
+            } else {
+                throw new Error(data.message || 'Failed to delete template');
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Failed to delete template',
                 confirmButtonColor: '#ef4444'
             });
         }

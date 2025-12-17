@@ -572,14 +572,34 @@
                             </svg>
                             Previous
                         </button>
-                        <button id="next-btn" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ff6b6b] to-[#ff5252] text-white rounded-xl hover:shadow-lg transition-all">
-                            Next
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <button id="next-btn" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ff6b6b] to-[#ff5252] text-white rounded-xl hover:shadow-lg transition-all relative">
+                            <span id="next-btn-text">Next</span>
+                            <span id="next-btn-spinner" class="hidden">
+                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                            <svg id="next-btn-arrow" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                             </svg>
                         </button>
                     </div>
                     @endif
+                    
+                    <!-- Loading Overlay -->
+                    <div id="step-loading-overlay" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <div class="bg-gray-800 dark:bg-[#1e293b] rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center">
+                            <div class="flex flex-col items-center">
+                                <svg class="animate-spin h-12 w-12 text-[#ff6b6b] mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <h3 class="text-xl font-bold text-white mb-2" id="loading-title">Processing...</h3>
+                                <p class="text-gray-400 text-sm" id="loading-message">Please wait while we save your progress</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right Column - Preview (Larger) -->
@@ -1239,107 +1259,226 @@
             
             // Navigation with data saving
             document.getElementById('next-btn')?.addEventListener('click', async function() {
-                // If on step 1, validate page name before proceeding
-                if (currentStep === 1) {
-                    const pageNameInput = document.getElementById('page-name');
-                    const pageName = pageNameInput?.value?.trim() || '';
-                    
-                    if (!pageName) {
-                        alert('Please enter a page name before proceeding.');
-                        pageNameInput?.focus();
-                        return;
+                const nextBtn = document.getElementById('next-btn');
+                const nextBtnText = document.getElementById('next-btn-text');
+                const nextBtnSpinner = document.getElementById('next-btn-spinner');
+                const nextBtnArrow = document.getElementById('next-btn-arrow');
+                const loadingOverlay = document.getElementById('step-loading-overlay');
+                const loadingTitle = document.getElementById('loading-title');
+                const loadingMessage = document.getElementById('loading-message');
+                
+                // Show loading state
+                function showLoading(title, message) {
+                    if (nextBtn) {
+                        nextBtn.disabled = true;
+                        nextBtn.classList.add('opacity-75', 'cursor-not-allowed');
                     }
-                    
-                    // Check if page name is already taken
-                    try {
-                        const draftId = currentDraftId || localStorage.getItem('draftId');
-                        const response = await fetch('{{ route("templates.check-page-name") }}', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                            },
-                            body: JSON.stringify({
-                                page_name: pageName,
-                                draft_id: draftId ? parseInt(draftId) : null
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (!result.available) {
-                            // Show error message
-                            const errorDiv = document.getElementById('page-name-error');
-                            const errorText = document.getElementById('page-name-error-text');
-                            
-                            if (errorDiv && errorText) {
-                                errorText.textContent = result.message || 'This page name is already taken. Please choose a different name.';
-                                errorDiv.classList.remove('hidden');
-                            } else {
-                                alert(result.message || 'This page name is already taken. Please choose a different name.');
-                            }
-                            
-                            pageNameInput?.focus();
-                            
-                            // Add error styling
-                            if (pageNameInput) {
-                                pageNameInput.classList.add('border-red-500');
-                                pageNameInput.classList.remove('border-gray-700', 'focus:border-[#ff6b6b]');
-                                
-                                // Remove error styling and message after user starts typing
-                                const removeError = function() {
-                                    pageNameInput.classList.remove('border-red-500');
-                                    pageNameInput.classList.add('border-gray-700', 'focus:border-[#ff6b6b]');
-                                    if (errorDiv) {
-                                        errorDiv.classList.add('hidden');
-                                    }
-                                    pageNameInput.removeEventListener('input', removeError);
-                                };
-                                pageNameInput.addEventListener('input', removeError, { once: true });
-                            }
-                            return;
-                        } else {
-                            // Hide error message if page name is available
-                            const errorDiv = document.getElementById('page-name-error');
-                            if (errorDiv) {
-                                errorDiv.classList.add('hidden');
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error checking page name:', error);
-                        // Continue if check fails (don't block user)
+                    if (nextBtnText) nextBtnText.textContent = 'Processing...';
+                    if (nextBtnSpinner) {
+                        document.getElementById('next-btn-spinner').classList.remove('hidden');
+                        if (nextBtnArrow) nextBtnArrow.classList.add('hidden');
+                    }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.remove('hidden');
+                    }
+                    if (loadingTitle) loadingTitle.textContent = title || 'Processing...';
+                    if (loadingMessage) loadingMessage.textContent = message || 'Please wait while we save your progress';
+                }
+                
+                // Hide loading state
+                function hideLoading() {
+                    if (nextBtn) {
+                        nextBtn.disabled = false;
+                        nextBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    }
+                    if (nextBtnText) nextBtnText.textContent = 'Next';
+                    if (nextBtnSpinner) {
+                        document.getElementById('next-btn-spinner').classList.add('hidden');
+                        if (nextBtnArrow) nextBtnArrow.classList.remove('hidden');
+                    }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
                     }
                 }
                 
-                saveFormData(); // Save before navigating
-                // Ensure images are saved before navigating forward
                 try {
-                    await saveDraftToBackend();
+                    // If on step 1, validate page name before proceeding
+                    if (currentStep === 1) {
+                        const pageNameInput = document.getElementById('page-name');
+                        const pageName = pageNameInput?.value?.trim() || '';
+                        
+                        if (!pageName) {
+                            alert('Please enter a page name before proceeding.');
+                            pageNameInput?.focus();
+                            return;
+                        }
+                        
+                        // Show loading while checking page name
+                        showLoading('Validating...', 'Checking if page name is available');
+                        
+                        // Check if page name is already taken
+                        try {
+                            const draftId = currentDraftId || localStorage.getItem('draftId');
+                            const response = await fetch('{{ route("templates.check-page-name") }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                },
+                                body: JSON.stringify({
+                                    page_name: pageName,
+                                    draft_id: draftId ? parseInt(draftId) : null
+                                })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (!result.available) {
+                                hideLoading();
+                                // Show error message
+                                const errorDiv = document.getElementById('page-name-error');
+                                const errorText = document.getElementById('page-name-error-text');
+                                
+                                if (errorDiv && errorText) {
+                                    errorText.textContent = result.message || 'This page name is already taken. Please choose a different name.';
+                                    errorDiv.classList.remove('hidden');
+                                } else {
+                                    alert(result.message || 'This page name is already taken. Please choose a different name.');
+                                }
+                                
+                                pageNameInput?.focus();
+                                
+                                // Add error styling
+                                if (pageNameInput) {
+                                    pageNameInput.classList.add('border-red-500');
+                                    pageNameInput.classList.remove('border-gray-700', 'focus:border-[#ff6b6b]');
+                                    
+                                    // Remove error styling and message after user starts typing
+                                    const removeError = function() {
+                                        pageNameInput.classList.remove('border-red-500');
+                                        pageNameInput.classList.add('border-gray-700', 'focus:border-[#ff6b6b]');
+                                        if (errorDiv) {
+                                            errorDiv.classList.add('hidden');
+                                        }
+                                        pageNameInput.removeEventListener('input', removeError);
+                                    };
+                                    pageNameInput.addEventListener('input', removeError, { once: true });
+                                }
+                                return;
+                            } else {
+                                // Hide error message if page name is available
+                                const errorDiv = document.getElementById('page-name-error');
+                                if (errorDiv) {
+                                    errorDiv.classList.add('hidden');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error checking page name:', error);
+                            hideLoading();
+                            // Continue if check fails (don't block user)
+                        }
+                    }
+                    
+                    // Show loading while saving
+                    showLoading('Saving Progress...', 'Saving your data and images');
+                    
+                    saveFormData(); // Save before navigating
+                    
+                    // Ensure images are saved before navigating forward
+                    showLoading('Saving Images...', 'Uploading and saving your images to the server');
+                    try {
+                        await saveDraftToBackend();
+                    } catch (error) {
+                        console.error('Error saving draft before navigation:', error);
+                        hideLoading();
+                        alert('Error saving your progress. Please try again.');
+                        return;
+                    }
+                    
+                    // Show loading while navigating
+                    showLoading('Moving to Next Step...', 'Preparing the next step for you');
+                    
+                    if (currentStep < totalSteps) {
+                        // Small delay to ensure loading is visible
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        window.location.href = '{{ route("create") }}?step=' + (currentStep + 1);
+                    } else {
+                        hideLoading();
+                    }
                 } catch (error) {
-                    console.error('Error saving draft before navigation:', error);
-                }
-                if (currentStep < totalSteps) {
-                    window.location.href = '{{ route("create") }}?step=' + (currentStep + 1);
+                    console.error('Error during navigation:', error);
+                    hideLoading();
+                    alert('An error occurred. Please try again.');
                 }
             });
             
             document.getElementById('prev-btn')?.addEventListener('click', async function() {
-                saveFormData(); // Save before navigating
-                // Ensure images are loaded and saved before navigating back
-                try {
-                    // First, try to load images from database if we have a draft ID
-                    if (currentDraftId) {
-                        await loadDraftImages();
-                        // Wait a bit for images to be processed
-                        await new Promise(resolve => setTimeout(resolve, 300));
+                const prevBtn = document.getElementById('prev-btn');
+                const loadingOverlay = document.getElementById('step-loading-overlay');
+                const loadingTitle = document.getElementById('loading-title');
+                const loadingMessage = document.getElementById('loading-message');
+                
+                // Show loading state
+                function showLoading(title, message) {
+                    if (prevBtn) {
+                        prevBtn.disabled = true;
+                        prevBtn.classList.add('opacity-75', 'cursor-not-allowed');
                     }
-                    // Then save the draft
-                    await saveDraftToBackend();
-                } catch (error) {
-                    console.error('Error saving draft before navigation:', error);
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.remove('hidden');
+                    }
+                    if (loadingTitle) loadingTitle.textContent = title || 'Processing...';
+                    if (loadingMessage) loadingMessage.textContent = message || 'Please wait';
                 }
-                if (currentStep > 1) {
-                    window.location.href = '{{ route("create") }}?step=' + (currentStep - 1);
+                
+                // Hide loading state
+                function hideLoading() {
+                    if (prevBtn) {
+                        prevBtn.disabled = false;
+                        prevBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                }
+                
+                try {
+                    showLoading('Saving Progress...', 'Saving your data before going back');
+                    
+                    saveFormData(); // Save before navigating
+                    
+                    // Ensure images are loaded and saved before navigating back
+                    showLoading('Loading Images...', 'Loading your images from the server');
+                    try {
+                        // First, try to load images from database if we have a draft ID
+                        if (currentDraftId) {
+                            await loadDraftImages();
+                            // Wait a bit for images to be processed
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                        // Then save the draft
+                        showLoading('Saving...', 'Saving your progress');
+                        await saveDraftToBackend();
+                    } catch (error) {
+                        console.error('Error saving draft before navigation:', error);
+                        hideLoading();
+                        alert('Error saving your progress. Please try again.');
+                        return;
+                    }
+                    
+                    showLoading('Moving to Previous Step...', 'Preparing the previous step');
+                    
+                    if (currentStep > 1) {
+                        // Small delay to ensure loading is visible
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        window.location.href = '{{ route("create") }}?step=' + (currentStep - 1);
+                    } else {
+                        hideLoading();
+                    }
+                } catch (error) {
+                    console.error('Error during navigation:', error);
+                    hideLoading();
+                    alert('An error occurred. Please try again.');
                 }
             });
             
@@ -2307,6 +2446,86 @@
                     this.value = '';
                 });
                 
+                // Image compression function to reduce size to less than 1MB while maintaining quality
+                async function compressImage(file, maxSizeMB = 1, maxWidth = 1920, maxHeight = 1920) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const img = new Image();
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                let width = img.width;
+                                let height = img.height;
+                                
+                                // Calculate new dimensions maintaining aspect ratio
+                                if (width > maxWidth || height > maxHeight) {
+                                    if (width > height) {
+                                        if (width > maxWidth) {
+                                            height = (height * maxWidth) / width;
+                                            width = maxWidth;
+                                        }
+                                    } else {
+                                        if (height > maxHeight) {
+                                            width = (width * maxHeight) / height;
+                                            height = maxHeight;
+                                        }
+                                    }
+                                }
+                                
+                                canvas.width = width;
+                                canvas.height = height;
+                                
+                                const ctx = canvas.getContext('2d');
+                                // Use high-quality image rendering
+                                ctx.imageSmoothingEnabled = true;
+                                ctx.imageSmoothingQuality = 'high';
+                                ctx.drawImage(img, 0, 0, width, height);
+                                
+                                // Determine output format - use JPEG for better compression, PNG only if transparency is needed
+                                const isPng = file.type === 'image/png';
+                                const outputFormat = isPng ? 'image/png' : 'image/jpeg';
+                                
+                                // Try different quality levels to get under 1MB
+                                let quality = 0.92; // Start with high quality
+                                let compressedDataUrl = '';
+                                const maxSizeBytes = maxSizeMB * 1024 * 1024;
+                                
+                                const tryCompress = () => {
+                                    // Use JPEG for better compression (unless we need transparency)
+                                    // For most images, JPEG provides better compression
+                                    compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                                    
+                                    // Calculate actual base64 size (more accurate)
+                                    const base64Size = (compressedDataUrl.length - compressedDataUrl.indexOf(',') - 1) * 0.75;
+                                    
+                                    if (base64Size > maxSizeBytes && quality > 0.5) {
+                                        quality -= 0.05; // Reduce quality by 5%
+                                        tryCompress();
+                                    } else if (base64Size > maxSizeBytes && (width > 800 || height > 800)) {
+                                        // If still too large, try reducing dimensions further
+                                        width = Math.floor(width * 0.9);
+                                        height = Math.floor(height * 0.9);
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                        ctx.drawImage(img, 0, 0, width, height);
+                                        quality = 0.85; // Reset quality
+                                        tryCompress();
+                                    } else {
+                                        resolve(compressedDataUrl);
+                                    }
+                                };
+                                
+                                tryCompress();
+                            };
+                            img.onerror = reject;
+                            img.src = e.target.result;
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                }
+                
                 function handleHeadingImageUpload(file) {
                     // Check current count
                     const currentCount = headingImagesPreview.children.length;
@@ -2320,13 +2539,40 @@
                         return;
                     }
                     
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const imgContainer = document.createElement('div');
-                        imgContainer.className = 'relative group overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105';
-                        
+                    // Create container with loading state first
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'relative group overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105';
+                    
+                    // Add loading spinner
+                    const loadingSpinner = document.createElement('div');
+                    loadingSpinner.className = 'absolute inset-0 flex items-center justify-center bg-gray-800/80 rounded-lg z-10';
+                    loadingSpinner.innerHTML = `
+                        <div class="flex flex-col items-center">
+                            <svg class="animate-spin h-8 w-8 text-[#ff6b6b] mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-white text-xs font-semibold">Processing...</span>
+                        </div>
+                    `;
+                    imgContainer.appendChild(loadingSpinner);
+                    
+                    // Add to preview immediately to show loading state
+                    headingImagesPreview.appendChild(imgContainer);
+                    
+                    // Compress image before converting to base64
+                    compressImage(file, 1, 1920, 1920).then(function(compressedDataUrl) {
                         const img = document.createElement('img');
-                        img.src = e.target.result;
+                        img.src = compressedDataUrl;
+                        
+                        // Hide loading spinner when image loads
+                        img.onload = function() {
+                            loadingSpinner.style.display = 'none';
+                        };
+                        img.onerror = function() {
+                            loadingSpinner.style.display = 'none';
+                            console.error('Failed to load compressed image');
+                        };
                         
                         // Set image size based on current grid view
                         if (currentGridView === 'small') {
@@ -2398,7 +2644,6 @@
                         imgContainer.appendChild(overlay);
                         imgContainer.appendChild(removeBtn);
                         imgContainer.appendChild(numberBadge);
-                        headingImagesPreview.appendChild(imgContainer);
                         
                         // Update all number badges
                         updateImageNumbers();
@@ -2424,8 +2669,14 @@
                             updatePreview();
                         // Gallery preview updated
                         }, 200);
-                    };
-                    reader.readAsDataURL(file);
+                    }).catch(function(error) {
+                        console.error('Error compressing image:', error);
+                        // Remove loading spinner and container on error
+                        if (imgContainer && imgContainer.parentNode) {
+                            imgContainer.remove();
+                        }
+                        alert('Failed to process image. Please try again.');
+                    });
                 }
                 
                 // Update image numbers
@@ -2618,6 +2869,20 @@
                                         const imgContainer = document.createElement('div');
                                         imgContainer.className = 'relative group overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105';
                                         
+                                        // Add loading spinner
+                                        const loadingSpinner = document.createElement('div');
+                                        loadingSpinner.className = 'absolute inset-0 flex items-center justify-center bg-gray-800/80 rounded-lg z-10';
+                                        loadingSpinner.innerHTML = `
+                                            <div class="flex flex-col items-center">
+                                                <svg class="animate-spin h-8 w-8 text-[#ff6b6b] mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                <span class="text-white text-xs font-semibold">Loading...</span>
+                                            </div>
+                                        `;
+                                        imgContainer.appendChild(loadingSpinner);
+                                        
                                         const img = document.createElement('img');
                                         // Handle both Cloudflare R2 URLs and local storage paths
                                         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
@@ -2630,6 +2895,15 @@
                                             // Relative path - add /storage/
                                             img.src = window.location.origin + '/storage/' + imagePath;
                                         }
+                                        
+                                        // Hide loading spinner when image loads
+                                        img.onload = function() {
+                                            loadingSpinner.style.display = 'none';
+                                        };
+                                        img.onerror = function() {
+                                            loadingSpinner.style.display = 'none';
+                                            console.error('Failed to load image from database:', imagePath);
+                                        };
                                         
                                         // Set image size based on current grid view (default to small if not set)
                                         const gridView = typeof currentGridView !== 'undefined' ? currentGridView : 'small';
@@ -2748,9 +3022,33 @@
                                                 : window.location.origin + '/storage/' + imagePath);
                                         const imgContainer = document.createElement('div');
                                         imgContainer.className = 'relative group';
+                                        
+                                        // Add loading spinner
+                                        const loadingSpinner = document.createElement('div');
+                                        loadingSpinner.className = 'absolute inset-0 flex items-center justify-center bg-gray-800/80 rounded-lg z-10';
+                                        loadingSpinner.innerHTML = `
+                                            <div class="flex flex-col items-center">
+                                                <svg class="animate-spin h-6 w-6 text-[#ff6b6b] mb-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                <span class="text-white text-xs font-semibold">Loading...</span>
+                                            </div>
+                                        `;
+                                        imgContainer.appendChild(loadingSpinner);
+                                        
                                         const img = document.createElement('img');
                                         img.src = imgSrc;
                                         img.className = 'w-full h-24 object-cover rounded-lg';
+                                        
+                                        // Hide loading spinner when image loads
+                                        img.onload = function() {
+                                            loadingSpinner.style.display = 'none';
+                                        };
+                                        img.onerror = function() {
+                                            loadingSpinner.style.display = 'none';
+                                            console.error('Failed to load image from database:', imagePath);
+                                        };
                                         
                                         const removeBtn = document.createElement('button');
                                         removeBtn.type = 'button';
@@ -2966,13 +3264,42 @@
                         alert('Image size must be less than 10MB');
                         return;
                     }
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const imgContainer = document.createElement('div');
-                        imgContainer.className = 'relative group';
+                    
+                    // Create container with loading state first
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'relative group';
+                    
+                    // Add loading spinner
+                    const loadingSpinner = document.createElement('div');
+                    loadingSpinner.className = 'absolute inset-0 flex items-center justify-center bg-gray-800/80 rounded-lg z-10';
+                    loadingSpinner.innerHTML = `
+                        <div class="flex flex-col items-center">
+                            <svg class="animate-spin h-6 w-6 text-[#ff6b6b] mb-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-white text-xs font-semibold">Processing...</span>
+                        </div>
+                    `;
+                    imgContainer.appendChild(loadingSpinner);
+                    
+                    // Add to preview immediately to show loading state
+                    imagesPreview.appendChild(imgContainer);
+                    
+                    // Compress image before converting to base64
+                    compressImage(file, 1, 1920, 1920).then(function(compressedDataUrl) {
                         const img = document.createElement('img');
-                        img.src = e.target.result;
+                        img.src = compressedDataUrl;
                         img.className = 'w-full h-24 object-cover rounded-lg';
+                        
+                        // Hide loading spinner when image loads
+                        img.onload = function() {
+                            loadingSpinner.style.display = 'none';
+                        };
+                        img.onerror = function() {
+                            loadingSpinner.style.display = 'none';
+                            console.error('Failed to load compressed image');
+                        };
                         
                         const removeBtn = document.createElement('button');
                         removeBtn.type = 'button';
@@ -2986,14 +3313,15 @@
                         
                         imgContainer.appendChild(img);
                         imgContainer.appendChild(removeBtn);
-                        imagesPreview.appendChild(imgContainer);
                         
                         saveFormData();
                         // Save draft immediately when image is uploaded
                         saveDraftToBackend();
                         setTimeout(updatePreview, 100);
-                    };
-                    reader.readAsDataURL(file);
+                    }).catch(function(error) {
+                        console.error('Error compressing image:', error);
+                        alert('Failed to process image. Please try again.');
+                    });
                 }
             }
             
