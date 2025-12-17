@@ -134,33 +134,30 @@
                 
                 <!-- Hero Images Gallery -->
                 <div class="pt-12 pb-8">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-8">
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
-                            <img src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&q=80" alt="Memory 1" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </div>
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
-                            <img src="https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400&q=80" alt="Memory 2" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </div>
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
-                            <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=400&q=80" alt="Memory 3" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </div>
-                        <div class="relative group overflow-hidden rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 aspect-square">
-                            <img src="https://images.unsplash.com/photo-1519741497674-611481863552?w=400&q=80" alt="Memory 4" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </div>
-                    </div>
+                    
                     
                     <!-- User Images Carousel -->
                     <div class="flex justify-center items-center gap-4 overflow-hidden">
                         <div class="flex gap-4 animate-scroll">
-                            @for($i = 0; $i < 10; $i++)
-                            <div class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-white dark:border-[#1e293b] shadow-lg flex-shrink-0">
-                                <img src="https://i.pravatar.cc/150?img={{ $i + 1 }}" alt="User {{ $i + 1 }}" class="w-full h-full object-cover">
+                            @php
+                                $images = [
+                                    asset('assets/img 1.jpg'),
+                                    asset('assets/img2.jpg'),
+                                    asset('assets/img 3.jpg'),
+                                    asset('assets/img 4.jpg'),
+                                    asset('assets/img 5.jpg'),
+                                    asset('assets/img 6.jpg'),
+                                    asset('assets/img 7.jpg'),
+                                    asset('assets/img 8.jpg'),
+                                ];
+                                // Duplicate images for seamless infinite scroll
+                                $images = array_merge($images, $images);
+                            @endphp
+                            @foreach($images as $index => $image)
+                            <div class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-white dark:border-[#1e293b] shadow-lg flex-shrink-0 bg-gray-100 dark:bg-[#1e293b] relative">
+                                <img src="{{ $image }}" alt="Memory {{ $index + 1 }}" class="absolute inset-0 w-full h-full object-cover" style="object-position: center 25%;">
                             </div>
-                            @endfor
+                            @endforeach
                         </div>
                     </div>
                     <p class="text-lg md:text-xl font-bold text-gray-700 dark:text-[#cbd5e1] mt-6">
