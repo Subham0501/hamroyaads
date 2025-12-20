@@ -700,6 +700,55 @@
                 images: []
             };
             
+            // ===== FIX: Debounce and queue system for image uploads =====
+            let pendingImageUploads = 0; // Counter for images being processed
+            let saveDebounceTimer = null; // Timer for debounced save
+            const SAVE_DEBOUNCE_DELAY = 2000; // Wait 2 seconds after last image upload before saving
+            const FETCH_TIMEOUT = 120000; // 2 minute timeout for fetch requests
+            
+            // Debounced save function - waits until user stops uploading images
+            function debouncedSaveDraft() {
+                if (saveDebounceTimer) {
+                    clearTimeout(saveDebounceTimer);
+                }
+                saveDebounceTimer = setTimeout(async () => {
+                    // Wait for all pending image compressions to complete
+                    if (pendingImageUploads > 0) {
+                        console.log('⏳ Waiting for', pendingImageUploads, 'images to finish processing...');
+                        // Retry after a delay
+                        debouncedSaveDraft();
+                        return;
+                    }
+                    console.log('🔄 Debounce complete, saving draft...');
+                    await saveDraftToBackend();
+                }, SAVE_DEBOUNCE_DELAY);
+            }
+            
+            // Fetch with timeout wrapper
+            async function fetchWithTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    controller.abort();
+                    console.error('⏱️ Request timed out after', timeout / 1000, 'seconds');
+                }, timeout);
+                
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    return response;
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    if (error.name === 'AbortError') {
+                        throw new Error('Request timed out. The server may be overloaded. Please try again.');
+                    }
+                    throw error;
+                }
+            }
+            // ===== END FIX =====
+            
             // Delete image from Cloudflare R2 or local storage
             async function deleteImageFromStorage(imageUrl) {
                 // Skip if it's a base64 image (not yet uploaded)
@@ -709,7 +758,7 @@
                 }
                 
                 try {
-                    const response = await fetch('{{ route("templates.delete-image") }}', {
+                    const response = await fetchWithTimeout('{{ route("templates.delete-image") }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -718,8 +767,8 @@
                         body: JSON.stringify({
                             image_url: imageUrl
                         })
-                    });
-                    
+                    }, 30000); // 30 second timeout for delete
+
                     const result = await response.json();
                     if (result.success) {
                         console.log('✅ Image deleted from storage:', imageUrl.substring(0, 50) + '...');
@@ -970,22 +1019,34 @@
                     draftData.images = additionalImages;
                 }
                 
+                // Limit base64 images per request to prevent server overload
+                const MAX_BASE64_PER_REQUEST = 5;
+                const base64HeadingImages = headingImages.filter(img => img.startsWith('data:image'));
+                const base64AdditionalImages = additionalImages.filter(img => img.startsWith('data:image'));
+                const totalBase64 = base64HeadingImages.length + base64AdditionalImages.length;
+                
+                if (totalBase64 > MAX_BASE64_PER_REQUEST) {
+                    console.log(`⚠️ Too many base64 images (${totalBase64}), will upload in batches of ${MAX_BASE64_PER_REQUEST}`);
+                }
+                
                 console.log('📤 Saving draft with:', {
                     draft_id: currentDraftId,
                     heading_images_count: headingImages.length,
                     additional_images_count: additionalImages.length,
+                    base64_count: totalBase64,
                     has_page_name: !!finalPageName
                 });
                 
                 try {
-                    const response = await fetch('{{ route("templates.save-draft") }}', {
+                    // Use fetchWithTimeout to prevent hanging requests
+                    const response = await fetchWithTimeout('{{ route("templates.save-draft") }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                         },
                         body: JSON.stringify(draftData)
-                    });
+                    }, FETCH_TIMEOUT);
                     
                     const result = await response.json();
                     if (result.success && result.draft_id) {
@@ -2845,11 +2906,14 @@
                         alert('Maximum 50 images allowed. Please remove some images first.');
                         return;
                     }
-                    
+
                     if (file.size > 10 * 1024 * 1024) {
                         alert('Image size must be less than 10MB');
                         return;
                     }
+                    
+                    // Increment pending uploads counter to track processing images
+                    pendingImageUploads++;
                     
                     // Create container with loading state first
                     const imgContainer = document.createElement('div');
@@ -2998,22 +3062,16 @@
                             updatePreview();
                         }, 100);
                         
-                        // Save draft immediately to DATABASE when image is uploaded (with delay to ensure image is in DOM)
-                        setTimeout(() => {
-                            saveDraftToBackend().then(() => {
-                                console.log('✅ Images saved to DATABASE successfully');
-                                // Update image count after save
-                                updateImageCount();
-                                // Update preview again after upload completes
-                                setTimeout(() => {
-                                    updatePreview();
-                                }, 200);
-                            }).catch(err => {
-                                console.error('❌ Error saving images to DATABASE:', err);
-                            });
-                        }, 300);
+                        // Decrement pending counter
+                        pendingImageUploads = Math.max(0, pendingImageUploads - 1);
+                        console.log('📸 Image processed, pending:', pendingImageUploads);
+                        
+                        // Use debounced save - will wait for user to stop uploading
+                        debouncedSaveDraft();
                     }).catch(function(error) {
                         console.error('Error compressing image:', error);
+                        // Decrement pending counter on error too
+                        pendingImageUploads = Math.max(0, pendingImageUploads - 1);
                         // Remove loading spinner and container on error
                         if (imgContainer && imgContainer.parentNode) {
                             imgContainer.remove();
@@ -3693,6 +3751,9 @@
                         return;
                     }
                     
+                    // Increment pending uploads counter to track processing images
+                    pendingImageUploads++;
+                    
                     // Create container with loading state first
                     const imgContainer = document.createElement('div');
                     imgContainer.className = 'relative group';
@@ -3810,17 +3871,16 @@
                             updatePreview();
                         }, 100);
                         
-                        // Save draft immediately when image is uploaded
-                        saveDraftToBackend().then(() => {
-                            // Update preview again after upload completes
-                            setTimeout(() => {
-                                updatePreview();
-                            }, 200);
-                        }).catch(err => {
-                            console.error('Error saving draft:', err);
-                        });
+                        // Decrement pending counter
+                        pendingImageUploads = Math.max(0, pendingImageUploads - 1);
+                        console.log('📸 Additional image processed, pending:', pendingImageUploads);
+                        
+                        // Use debounced save - will wait for user to stop uploading
+                        debouncedSaveDraft();
                     }).catch(function(error) {
                         console.error('Error compressing image:', error);
+                        // Decrement pending counter on error too
+                        pendingImageUploads = Math.max(0, pendingImageUploads - 1);
                         alert('Failed to process image. Please try again.');
                     });
                 }

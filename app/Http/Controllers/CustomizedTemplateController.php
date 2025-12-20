@@ -16,7 +16,24 @@ class CustomizedTemplateController extends Controller
      */
     public function saveDraft(Request $request)
     {
-        \Log::info('Saving draft template', ['user_id' => Auth::id()]);
+        // Increase limits for image uploads
+        ini_set('memory_limit', '512M');
+        set_time_limit(300); // 5 minutes
+        
+        // Log request size for debugging
+        $contentLength = $request->header('Content-Length', 0);
+        \Log::info('Saving draft template', [
+            'user_id' => Auth::id(),
+            'content_length' => $contentLength,
+            'content_length_mb' => round($contentLength / 1024 / 1024, 2) . 'MB'
+        ]);
+        
+        // Warn if payload is very large
+        if ($contentLength > 50 * 1024 * 1024) { // 50MB
+            \Log::warning('Very large payload detected', [
+                'size_mb' => round($contentLength / 1024 / 1024, 2)
+            ]);
+        }
         
         try {
             // Validate draft_id separately to handle invalid IDs gracefully
@@ -775,6 +792,41 @@ class CustomizedTemplateController extends Controller
     }
 
     /**
+     * Cached S3 client instance for reuse across multiple uploads
+     */
+    private static $s3Client = null;
+    
+    /**
+     * Get or create a reusable S3 client
+     */
+    private function getS3Client(): ?\Aws\S3\S3Client
+    {
+        if (self::$s3Client === null && class_exists('\Aws\S3\S3Client')) {
+            try {
+                self::$s3Client = new \Aws\S3\S3Client([
+                    'version' => 'latest',
+                    'region' => config('filesystems.disks.cloudflare.region', 'auto'),
+                    'endpoint' => config('filesystems.disks.cloudflare.endpoint'),
+                    'credentials' => [
+                        'key' => config('filesystems.disks.cloudflare.key'),
+                        'secret' => config('filesystems.disks.cloudflare.secret'),
+                    ],
+                    'use_path_style_endpoint' => config('filesystems.disks.cloudflare.use_path_style_endpoint', false),
+                    // Add connection pooling and timeout settings
+                    'http' => [
+                        'timeout' => 30,
+                        'connect_timeout' => 10,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to create S3 client', ['error' => $e->getMessage()]);
+                self::$s3Client = null;
+            }
+        }
+        return self::$s3Client;
+    }
+    
+    /**
      * Handle array of base64 images.
      */
     private function handleBase64Images(array $images, int $userId, string $type): array
@@ -785,44 +837,79 @@ class CustomizedTemplateController extends Controller
             throw new \Exception('Maximum 50 images allowed. Please remove some images.');
         }
         
+        // Increase memory limit temporarily for large uploads
+        $originalMemoryLimit = ini_get('memory_limit');
+        ini_set('memory_limit', '512M');
+        
+        // Set max execution time for long uploads
+        $originalMaxExecution = ini_get('max_execution_time');
+        set_time_limit(300); // 5 minutes
+        
         $uploadedImages = [];
         $seenBase64 = []; // Track base64 images to prevent duplicates
         $seenUrls = []; // Track URLs to prevent duplicates
+        $base64Count = 0;
         
-        foreach ($images as $index => $image) {
+        // Count base64 images first
+        foreach ($images as $image) {
             if (is_string($image) && Str::startsWith($image, 'data:image')) {
-                // Create a hash of the base64 content to detect duplicates
-                $base64Hash = md5($image);
-                
-                // Skip if we've already processed this exact base64 image
-                if (isset($seenBase64[$base64Hash])) {
-                    \Log::info('Skipping duplicate base64 image', [
-                        'type' => $type,
-                        'index' => $index,
-                        'hash' => substr($base64Hash, 0, 8)
-                    ]);
-                    $uploadedImages[] = $seenBase64[$base64Hash]; // Use the already uploaded URL
-                    continue;
+                $base64Count++;
+            }
+        }
+        
+        \Log::info('Starting image processing', [
+            'type' => $type,
+            'total_images' => count($images),
+            'base64_count' => $base64Count,
+            'memory_limit' => ini_get('memory_limit')
+        ]);
+        
+        try {
+            foreach ($images as $index => $image) {
+                if (is_string($image) && Str::startsWith($image, 'data:image')) {
+                    // Create a hash of the base64 content to detect duplicates
+                    $base64Hash = md5($image);
+                    
+                    // Skip if we've already processed this exact base64 image
+                    if (isset($seenBase64[$base64Hash])) {
+                        \Log::info('Skipping duplicate base64 image', [
+                            'type' => $type,
+                            'index' => $index,
+                            'hash' => substr($base64Hash, 0, 8)
+                        ]);
+                        $uploadedImages[] = $seenBase64[$base64Hash]; // Use the already uploaded URL
+                        continue;
+                    }
+                    
+                    $uploadedUrl = $this->saveBase64Image($image, $userId, "{$type}-{$index}");
+                    if (!empty($uploadedUrl)) {
+                        $uploadedImages[] = $uploadedUrl;
+                        $seenBase64[$base64Hash] = $uploadedUrl; // Store for duplicate detection
+                    }
+                    
+                    // Free memory after processing each base64 image
+                    unset($image);
+                    
+                } elseif (is_string($image)) {
+                    // Skip duplicate URLs
+                    if (in_array($image, $seenUrls, true)) {
+                        \Log::info('Skipping duplicate URL', [
+                            'type' => $type,
+                            'index' => $index,
+                            'url' => substr($image, 0, 50) . '...'
+                        ]);
+                        continue;
+                    }
+                    
+                    $uploadedImages[] = $image; // Already a path
+                    $seenUrls[] = $image;
                 }
-                
-                $uploadedUrl = $this->saveBase64Image($image, $userId, "{$type}-{$index}");
-                if (!empty($uploadedUrl)) {
-                    $uploadedImages[] = $uploadedUrl;
-                    $seenBase64[$base64Hash] = $uploadedUrl; // Store for duplicate detection
-                }
-            } elseif (is_string($image)) {
-                // Skip duplicate URLs
-                if (in_array($image, $seenUrls, true)) {
-                    \Log::info('Skipping duplicate URL', [
-                        'type' => $type,
-                        'index' => $index,
-                        'url' => substr($image, 0, 50) . '...'
-                    ]);
-                    continue;
-                }
-                
-                $uploadedImages[] = $image; // Already a path
-                $seenUrls[] = $image;
+            }
+        } finally {
+            // Restore original settings
+            ini_set('memory_limit', $originalMemoryLimit);
+            if ($originalMaxExecution !== false) {
+                set_time_limit((int)$originalMaxExecution);
             }
         }
 
@@ -869,6 +956,9 @@ class CustomizedTemplateController extends Controller
                 return '';
             }
             
+            // Free the base64 string from memory immediately
+            unset($base64Image);
+            
             $filename = $prefix . '_' . time() . '_' . Str::random(10) . '.' . $extension;
             $path = "templates/{$userId}/{$filename}";
             
@@ -877,22 +967,11 @@ class CustomizedTemplateController extends Controller
             
             // For Cloudflare R2, no need to create directories (S3-compatible)
             if ($disk === 'cloudflare') {
-                // Use S3 client directly to set explicit ContentType (avoids fileinfo dependency)
-                // Check if AWS SDK is available
-                if (class_exists('\Aws\S3\S3Client')) {
+                // Use cached S3 client to avoid creating new connections for each image
+                $s3Client = $this->getS3Client();
+                
+                if ($s3Client) {
                     try {
-                        // Create S3 client directly using configuration
-                        $s3Client = new \Aws\S3\S3Client([
-                            'version' => 'latest',
-                            'region' => config('filesystems.disks.cloudflare.region', 'auto'),
-                            'endpoint' => config('filesystems.disks.cloudflare.endpoint'),
-                            'credentials' => [
-                                'key' => config('filesystems.disks.cloudflare.key'),
-                                'secret' => config('filesystems.disks.cloudflare.secret'),
-                            ],
-                            'use_path_style_endpoint' => config('filesystems.disks.cloudflare.use_path_style_endpoint', false),
-                        ]);
-                        
                         $bucket = config('filesystems.disks.cloudflare.bucket');
                         $mimeType = $this->getMimeTypeFromExtension($extension);
                         
@@ -912,6 +991,9 @@ class CustomizedTemplateController extends Controller
                         $result = $s3Client->putObject($putObjectParams);
                         
                         $saved = isset($result['ETag']);
+                        
+                        // Free image data from memory
+                        unset($imageData);
                     } catch (\Exception $e) {
                         \Log::error('Failed to upload to Cloudflare R2 using S3 client', [
                             'error' => $e->getMessage(),
@@ -921,7 +1003,7 @@ class CustomizedTemplateController extends Controller
                     }
                 } else {
                     $saved = false;
-                    \Log::warning('AWS SDK not available, will use fallback method');
+                    \Log::warning('S3 client not available, will use fallback method');
                 }
                 
                 // Fallback: Use Storage facade with temporary file (helps with MIME detection)
