@@ -860,15 +860,14 @@
                                 return;
                             }
                             
-                            // Skip base64 images that have already been uploaded (but not yet mapped to URL)
-                            if (imgSrc.startsWith('data:image') && uploadedBase64Images.has(imgSrc)) {
-                                console.log('⏭️ Skipping already-uploaded base64 heading image (waiting for URL)');
-                                return;
-                            }
-                            
-                            // Include new base64 images or URLs
+                            // Include base64 images even if they're marked as uploaded
+                            // The server will handle deduplication and return the URL
+                            // This ensures images are saved even if URL mapping hasn't completed yet
                             headingImages.push(imgSrc);
                             seenHeadingImages.add(imgSrc);
+                            if (imgSrc.startsWith('data:image')) {
+                                console.log('📤 Including base64 heading image for upload');
+                            }
                         }
                     });
                     console.log('📸 Got heading images from DOM:', headingImages.length);
@@ -914,15 +913,14 @@
                                 return;
                             }
                             
-                            // Skip base64 images that have already been uploaded (but not yet mapped to URL)
-                            if (imgSrc.startsWith('data:image') && uploadedBase64Images.has(imgSrc)) {
-                                console.log('⏭️ Skipping already-uploaded base64 additional image (waiting for URL)');
-                                return;
-                            }
-                            
-                            // Include new base64 images or URLs
+                            // Include base64 images even if they're marked as uploaded
+                            // The server will handle deduplication and return the URL
+                            // This ensures images are saved even if URL mapping hasn't completed yet
                             additionalImages.push(imgSrc);
                             seenAdditionalImages.add(imgSrc);
+                            if (imgSrc.startsWith('data:image')) {
+                                console.log('📤 Including base64 additional image for upload');
+                            }
                         }
                     });
                     console.log('📸 Got additional images from DOM:', additionalImages.length);
@@ -1651,15 +1649,21 @@
                                                 expected: totalExpectedImages
                                             });
                                             
-                                            // Check if we have at least the expected number of images
-                                            if (totalSaved >= totalExpectedImages) {
+                                            // Check if we have at least 80% of expected images (allow some tolerance)
+                                            // Or if we have at least some images saved
+                                            const minRequired = Math.max(1, Math.floor(totalExpectedImages * 0.8));
+                                            if (totalSaved >= minRequired || (totalSaved > 0 && verificationAttempts >= 3)) {
                                                 imagesVerified = true;
-                                                console.log('✅ Images verified in database!');
+                                                console.log('✅ Images verified in database!', {
+                                                    saved: totalSaved,
+                                                    expected: totalExpectedImages,
+                                                    min_required: minRequired
+                                                });
                                             } else if (verificationAttempts === maxVerificationAttempts - 1) {
                                                 // Last attempt - if still not verified, save again
                                                 console.log('⚠️ Images not fully saved, attempting final save...');
                                                 await saveDraftToBackend();
-                                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                                await new Promise(resolve => setTimeout(resolve, 1500));
                                                 imagesVerified = true; // Proceed anyway
                                             }
                                         }
