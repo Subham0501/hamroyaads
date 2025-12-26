@@ -1527,6 +1527,19 @@
                         }
                     }
                     
+                    // Check if there are pending image uploads
+                    if (pendingImageUploads > 0) {
+                        showLoading('Uploading Images...', `Please wait, ${pendingImageUploads} image(s) still uploading. This may take a moment...`);
+                        
+                        // Wait for all pending uploads to complete
+                        while (pendingImageUploads > 0) {
+                            console.log('⏳ Waiting for', pendingImageUploads, 'image(s) to finish uploading...');
+                            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before checking again
+                        }
+                        
+                        console.log('✅ All images uploaded, proceeding...');
+                    }
+                    
                     // Show loading while saving
                     showLoading('Saving Progress...', 'Saving your data and images');
                     
@@ -1591,6 +1604,19 @@
                 }
                 
                 try {
+                    // Check if there are pending image uploads
+                    if (pendingImageUploads > 0) {
+                        showLoading('Uploading Images...', `Please wait, ${pendingImageUploads} image(s) still uploading. This may take a moment...`);
+                        
+                        // Wait for all pending uploads to complete
+                        while (pendingImageUploads > 0) {
+                            console.log('⏳ Waiting for', pendingImageUploads, 'image(s) to finish uploading...');
+                            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before checking again
+                        }
+                        
+                        console.log('✅ All images uploaded, proceeding...');
+                    }
+                    
                     showLoading('Saving Progress...', 'Saving your data before going back');
                     
                     saveFormData(); // Save before navigating
