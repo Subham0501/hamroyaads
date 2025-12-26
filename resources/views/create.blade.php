@@ -829,7 +829,7 @@
                 // Prevent concurrent saves
                 if (isSavingDraft) {
                     console.log('⏸️ Save already in progress, skipping...');
-                    return;
+                    return null; // Return null to indicate save was skipped
                 }
                 
                 isSavingDraft = true;
@@ -1197,6 +1197,9 @@
                             additional_urls: result.data?.images?.memories || []
                         });
                         
+                        // Return result so caller can check if images were saved
+                        return result;
+                        
                         // Update cached images
                         if (result.data) {
                             const previousHeadingImages = cachedDraftImages.heading_images || [];
@@ -1294,14 +1297,21 @@
                         if (!window.isDraftImagesLoading) {
                             setTimeout(debouncedUpdatePreview, 300);
                         }
+                        
+                        // Return result so caller can check if images were saved
+                        return result;
                     } else {
                         console.error('❌ Failed to save draft:', result);
+                        return null;
                     }
                 } catch (error) {
                     console.error('❌ Error saving draft to DATABASE:', error);
+                    return null;
                 } finally {
                     isSavingDraft = false;
                 }
+                
+                return null; // Return null if save didn't complete successfully
             }
             
             function saveFormData() {
@@ -1801,7 +1811,27 @@
                         });
                         
                         // Save and wait for response
-                        await saveDraftToBackend();
+                        const saveResult = await saveDraftToBackend();
+                        
+                        // Check if save was successful and if images were included in response
+                        const saveResponseImages = saveResult?.data?.heading_images?.length || 0;
+                        const saveResponseAdditionalImages = saveResult?.data?.images?.memories?.length || 0;
+                        const saveResponseTotal = saveResponseImages + saveResponseAdditionalImages;
+                        
+                        console.log('📊 Save response check:', {
+                            save_success: !!saveResult,
+                            save_response_images: saveResponseTotal,
+                            expected_images: totalExpectedImages,
+                            has_draft_id: !!saveResult?.draft_id
+                        });
+                        
+                        // CRITICAL: Wait a bit for server to fully process images before verification
+                        // Server might still be uploading to Cloudflare R2 even after response is sent
+                        // If no images in response, wait longer as they might still be processing
+                        const initialWaitTime = saveResponseTotal === 0 && totalExpectedImages > 0 ? 3000 : 2000;
+                        console.log('⏳ Waiting for server to finish processing images...', { waitTime: initialWaitTime });
+                        showLoading('Processing Images...', 'Uploading images to storage, please wait...');
+                        await new Promise(resolve => setTimeout(resolve, initialWaitTime));
                         
                         // CRITICAL: Verify ALL images are saved to database before allowing navigation
                         // This is especially important for step 3 -> step 4
@@ -1812,12 +1842,14 @@
                             
                             // Fetch the saved draft to verify images are there
                             let verificationAttempts = 0;
-                            const maxVerificationAttempts = 10; // More attempts for reliability
+                            const maxVerificationAttempts = 20; // Increased attempts for reliability
                             let imagesVerified = false;
                             let lastSavedCount = 0;
                             
                             while (verificationAttempts < maxVerificationAttempts && !imagesVerified) {
-                                await new Promise(resolve => setTimeout(resolve, 800)); // Wait 800ms between attempts
+                                // Wait longer between attempts for first few attempts (server might still be processing)
+                                const waitTime = verificationAttempts < 5 ? 1500 : 1000;
+                                await new Promise(resolve => setTimeout(resolve, waitTime));
                                 
                                 try {
                                     const verifyResponse = await fetch(`/api/templates/${draftId}`, {
@@ -1850,12 +1882,26 @@
                                                     saved: totalSaved,
                                                     expected: totalExpectedImages
                                                 });
-                                            } else if (verificationAttempts >= 5 && totalSaved < totalExpectedImages) {
-                                                // After 5 attempts, if still not all saved, try saving again
-                                                console.log('⚠️ Not all images saved yet, attempting another save...');
+                                            } else if (verificationAttempts >= 5 && totalSaved < totalExpectedImages && totalSaved > 0) {
+                                                // After 5 attempts, if some images are saved but not all, try saving again
+                                                console.log('⚠️ Not all images saved yet, attempting another save...', {
+                                                    saved: totalSaved,
+                                                    expected: totalExpectedImages,
+                                                    attempt: verificationAttempts + 1
+                                                });
                                                 showLoading('Re-saving Images...', `Saving remaining images (${totalSaved}/${totalExpectedImages} saved)`);
                                                 await saveDraftToBackend();
-                                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                                // Wait longer after re-save to allow processing
+                                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                            } else if (verificationAttempts >= 3 && totalSaved === 0) {
+                                                // If no images saved after 3 attempts, try saving again immediately
+                                                console.log('⚠️ No images saved yet, attempting save...', {
+                                                    attempt: verificationAttempts + 1
+                                                });
+                                                showLoading('Saving Images...', 'Uploading images to server...');
+                                                await saveDraftToBackend();
+                                                // Wait longer after save to allow processing
+                                                await new Promise(resolve => setTimeout(resolve, 2000));
                                             }
                                         }
                                     }
