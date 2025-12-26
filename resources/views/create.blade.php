@@ -1197,9 +1197,6 @@
                             additional_urls: result.data?.images?.memories || []
                         });
                         
-                        // Return result so caller can check if images were saved
-                        return result;
-                        
                         // Update cached images
                         if (result.data) {
                             const previousHeadingImages = cachedDraftImages.heading_images || [];
@@ -1822,15 +1819,37 @@
                             save_success: !!saveResult,
                             save_response_images: saveResponseTotal,
                             expected_images: totalExpectedImages,
-                            has_draft_id: !!saveResult?.draft_id
+                            has_draft_id: !!saveResult?.draft_id,
+                            save_result_data: saveResult?.data
                         });
+                        
+                        // CRITICAL: If save failed or returned null, don't proceed
+                        if (!saveResult || !saveResult.draft_id) {
+                            console.error('❌ Save failed or returned no draft ID');
+                            hideLoading();
+                            alert('Error saving your images. Please try again.');
+                            return;
+                        }
                         
                         // CRITICAL: Wait a bit for server to fully process images before verification
                         // Server might still be uploading to Cloudflare R2 even after response is sent
-                        // If no images in response, wait longer as they might still be processing
-                        const initialWaitTime = saveResponseTotal === 0 && totalExpectedImages > 0 ? 3000 : 2000;
-                        console.log('⏳ Waiting for server to finish processing images...', { waitTime: initialWaitTime });
-                        showLoading('Processing Images...', 'Uploading images to storage, please wait...');
+                        // If no images in response but we expect images, wait longer as they might still be processing
+                        // Also wait longer if we have many images (more processing time needed)
+                        let initialWaitTime = 2000; // Default 2 seconds
+                        if (saveResponseTotal === 0 && totalExpectedImages > 0) {
+                            // No images in response but we expect them - wait longer
+                            initialWaitTime = 4000; // 4 seconds
+                        } else if (totalExpectedImages > 5) {
+                            // Many images - need more processing time
+                            initialWaitTime = 3000; // 3 seconds
+                        }
+                        
+                        console.log('⏳ Waiting for server to finish processing images...', { 
+                            waitTime: initialWaitTime,
+                            response_images: saveResponseTotal,
+                            expected_images: totalExpectedImages
+                        });
+                        showLoading('Processing Images...', `Uploading ${totalExpectedImages} image(s) to storage, please wait...`);
                         await new Promise(resolve => setTimeout(resolve, initialWaitTime));
                         
                         // CRITICAL: Verify ALL images are saved to database before allowing navigation
@@ -1893,15 +1912,26 @@
                                                 await saveDraftToBackend();
                                                 // Wait longer after re-save to allow processing
                                                 await new Promise(resolve => setTimeout(resolve, 2000));
-                                            } else if (verificationAttempts >= 3 && totalSaved === 0) {
+                                            } else if (verificationAttempts >= 3 && totalSaved === 0 && totalExpectedImages > 0) {
                                                 // If no images saved after 3 attempts, try saving again immediately
                                                 console.log('⚠️ No images saved yet, attempting save...', {
-                                                    attempt: verificationAttempts + 1
+                                                    attempt: verificationAttempts + 1,
+                                                    expected: totalExpectedImages
                                                 });
-                                                showLoading('Saving Images...', 'Uploading images to server...');
-                                                await saveDraftToBackend();
-                                                // Wait longer after save to allow processing
-                                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                                showLoading('Saving Images...', `Uploading ${totalExpectedImages} image(s) to server...`);
+                                                const retrySaveResult = await saveDraftToBackend();
+                                                
+                                                // Check if retry save got images
+                                                const retryImages = (retrySaveResult?.data?.heading_images?.length || 0) + 
+                                                                   (retrySaveResult?.data?.images?.memories?.length || 0);
+                                                console.log('📊 Retry save result:', {
+                                                    success: !!retrySaveResult,
+                                                    images_in_response: retryImages
+                                                });
+                                                
+                                                // Wait longer after save to allow processing (especially for many images)
+                                                const retryWaitTime = totalExpectedImages > 5 ? 3000 : 2000;
+                                                await new Promise(resolve => setTimeout(resolve, retryWaitTime));
                                             }
                                         }
                                     }
@@ -1912,16 +1942,69 @@
                                 verificationAttempts++;
                             }
                             
-                            // FINAL CHECK: If not all images are saved, BLOCK navigation
+                            // FINAL CHECK: If not all images are saved, try one more save before blocking
                             if (!imagesVerified || lastSavedCount < totalExpectedImages) {
-                                console.error('❌ BLOCKING NAVIGATION: Not all images are saved!', {
+                                console.warn('⚠️ Not all images verified, attempting final save...', {
                                     saved: lastSavedCount,
                                     expected: totalExpectedImages,
                                     missing: totalExpectedImages - lastSavedCount
                                 });
-                                hideLoading();
-                                alert(`Cannot proceed: Only ${lastSavedCount} out of ${totalExpectedImages} images are saved. Please wait a moment and try again, or refresh the page.`);
-                                return; // BLOCK navigation
+                                
+                                // Try one final save attempt
+                                showLoading('Final Save Attempt...', `Saving remaining ${totalExpectedImages - lastSavedCount} image(s)...`);
+                                const finalSaveResult = await saveDraftToBackend();
+                                
+                                // Wait for final save to process (longer wait for many images)
+                                const finalWaitTime = totalExpectedImages > 5 ? 4000 : 3000;
+                                await new Promise(resolve => setTimeout(resolve, finalWaitTime));
+                                
+                                // Check one more time
+                                try {
+                                    const finalCheckResponse = await fetch(`/api/templates/${draftId}`, {
+                                        headers: {
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                        }
+                                    });
+                                    
+                                    if (finalCheckResponse.ok) {
+                                        const finalCheckResult = await finalCheckResponse.json();
+                                        if (finalCheckResult.success && finalCheckResult.data) {
+                                            const finalHeadingCount = finalCheckResult.data.heading_images?.length || 0;
+                                            const finalAdditionalCount = finalCheckResult.data.images?.memories?.length || 0;
+                                            const finalTotal = finalHeadingCount + finalAdditionalCount;
+                                            
+                                            console.log('📊 Final check result:', {
+                                                saved: finalTotal,
+                                                expected: totalExpectedImages
+                                            });
+                                            
+                                            if (finalTotal >= totalExpectedImages) {
+                                                console.log('✅ Final save successful! All images verified.');
+                                                imagesVerified = true;
+                                                lastSavedCount = finalTotal;
+                                            } else {
+                                                console.error('❌ Final check failed:', {
+                                                    saved: finalTotal,
+                                                    expected: totalExpectedImages
+                                                });
+                                            }
+                                        }
+                                    }
+                                } catch (finalError) {
+                                    console.error('Error in final check:', finalError);
+                                }
+                                
+                                // If still not verified, block navigation
+                                if (!imagesVerified || lastSavedCount < totalExpectedImages) {
+                                    console.error('❌ BLOCKING NAVIGATION: Not all images are saved!', {
+                                        saved: lastSavedCount,
+                                        expected: totalExpectedImages,
+                                        missing: totalExpectedImages - lastSavedCount
+                                    });
+                                    hideLoading();
+                                    alert(`Cannot proceed: Only ${lastSavedCount} out of ${totalExpectedImages} images are saved. The images may still be uploading to storage. Please wait a few seconds and try again, or refresh the page.`);
+                                    return; // BLOCK navigation
+                                }
                             }
                             
                             console.log('✅ All images confirmed saved, allowing navigation to step 4');
