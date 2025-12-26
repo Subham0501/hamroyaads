@@ -1781,8 +1781,7 @@
                         }
                         
                         // Count images before save - check both DOM and cache
-                        const headingImagesPreview = document.getElementById('heading-images-preview');
-                        const imagesPreview = document.getElementById('images-preview');
+                        // headingImagesPreview and imagesPreview already declared above, reusing them
                         const expectedHeadingCount = headingImagesPreview ? headingImagesPreview.children.length : 0;
                         const expectedAdditionalCount = imagesPreview ? imagesPreview.children.length : 0;
                         const cachedHeadingCount = cachedDraftImages.heading_images?.length || 0;
