@@ -843,11 +843,30 @@
                 const seenHeadingImages = new Set(); // Track to prevent duplicates
                 
                 // First, get images from DOM (current state - source of truth)
+                // IMPORTANT: Wait a moment to ensure all images are fully loaded in DOM
                 if (headingImagesPreview && headingImagesPreview.children.length > 0) {
+                    // Check for images that might still be loading (have loading spinner)
+                    const containersWithSpinners = Array.from(headingImagesPreview.children).filter(container => {
+                        const spinner = container.querySelector('.absolute.inset-0.flex.items-center');
+                        return spinner && spinner.style.display !== 'none';
+                    });
+                    
+                    if (containersWithSpinners.length > 0) {
+                        console.log('⏳ Waiting for', containersWithSpinners.length, 'heading image(s) to finish loading...');
+                        // Wait a bit more for images to finish processing
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    
                     Array.from(headingImagesPreview.children).forEach(container => {
                         const img = container.querySelector('img');
                         if (img && img.src && !seenHeadingImages.has(img.src)) {
                             const imgSrc = img.src;
+                            
+                            // Skip if image is still loading (no valid src yet)
+                            if (!imgSrc || imgSrc === '' || imgSrc === 'undefined') {
+                                console.log('⏭️ Skipping image - still loading');
+                                return;
+                            }
                             
                             // If it's a base64 that we've already uploaded, use the cached URL instead
                             if (imgSrc.startsWith('data:image') && base64ToUrlMap.has(imgSrc)) {
@@ -896,11 +915,30 @@
                 const seenAdditionalImages = new Set(); // Track to prevent duplicates
                 
                 // First, get images from DOM (current state - source of truth)
+                // IMPORTANT: Wait a moment to ensure all images are fully loaded in DOM
                 if (imagesPreview && imagesPreview.children.length > 0) {
+                    // Check for images that might still be loading (have loading spinner)
+                    const containersWithSpinners = Array.from(imagesPreview.children).filter(container => {
+                        const spinner = container.querySelector('.absolute.inset-0.flex.items-center');
+                        return spinner && spinner.style.display !== 'none';
+                    });
+                    
+                    if (containersWithSpinners.length > 0) {
+                        console.log('⏳ Waiting for', containersWithSpinners.length, 'additional image(s) to finish loading...');
+                        // Wait a bit more for images to finish processing
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    
                     Array.from(imagesPreview.children).forEach(container => {
                         const img = container.querySelector('img');
                         if (img && img.src && !seenAdditionalImages.has(img.src)) {
                             const imgSrc = img.src;
+                            
+                            // Skip if image is still loading (no valid src yet)
+                            if (!imgSrc || imgSrc === '' || imgSrc === 'undefined') {
+                                console.log('⏭️ Skipping image - still loading');
+                                return;
+                            }
                             
                             // If it's a base64 that we've already uploaded, use the cached URL instead
                             if (imgSrc.startsWith('data:image') && base64ToUrlMap.has(imgSrc)) {
@@ -1628,17 +1666,73 @@
                     // Ensure images are saved before navigating forward
                     showLoading('Saving Images...', 'Uploading and saving your images to the server');
                     try {
-                        // Count images before save
+                        // CRITICAL: Wait for all image processing to complete
+                        // This ensures all images are fully processed and in DOM before we collect them
+                        if (pendingImageUploads > 0) {
+                            console.log('⏳ Waiting for', pendingImageUploads, 'image(s) to finish processing before save...');
+                            let waitCounter = 0;
+                            const maxWait = 30; // 30 * 500ms = 15 seconds max
+                            while (pendingImageUploads > 0 && waitCounter < maxWait) {
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                waitCounter++;
+                                console.log('⏳ Still waiting...', pendingImageUploads, 'remaining, attempt', waitCounter);
+                            }
+                            if (pendingImageUploads > 0) {
+                                console.warn('⚠️ Some images still processing after', maxWait * 500, 'ms, but proceeding with save...');
+                            } else {
+                                console.log('✅ All images finished processing');
+                            }
+                            // Give extra time for DOM to fully update with all images
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                        
+                        // Also check for any loading spinners in DOM that indicate images are still processing
+                        const headingImagesPreview = document.getElementById('heading-images-preview');
+                        const imagesPreview = document.getElementById('images-preview');
+                        let hasLoadingSpinners = false;
+                        
+                        if (headingImagesPreview) {
+                            const spinners = headingImagesPreview.querySelectorAll('.absolute.inset-0.flex.items-center');
+                            spinners.forEach(spinner => {
+                                if (spinner.style.display !== 'none' && spinner.offsetParent !== null) {
+                                    hasLoadingSpinners = true;
+                                }
+                            });
+                        }
+                        
+                        if (imagesPreview) {
+                            const spinners = imagesPreview.querySelectorAll('.absolute.inset-0.flex.items-center');
+                            spinners.forEach(spinner => {
+                                if (spinner.style.display !== 'none' && spinner.offsetParent !== null) {
+                                    hasLoadingSpinners = true;
+                                }
+                            });
+                        }
+                        
+                        if (hasLoadingSpinners) {
+                            console.log('⏳ Found loading spinners, waiting for images to finish...');
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                        }
+                        
+                        // Count images before save - check both DOM and cache
                         const headingImagesPreview = document.getElementById('heading-images-preview');
                         const imagesPreview = document.getElementById('images-preview');
                         const expectedHeadingCount = headingImagesPreview ? headingImagesPreview.children.length : 0;
                         const expectedAdditionalCount = imagesPreview ? imagesPreview.children.length : 0;
-                        const totalExpectedImages = expectedHeadingCount + expectedAdditionalCount;
+                        const cachedHeadingCount = cachedDraftImages.heading_images?.length || 0;
+                        const cachedAdditionalCount = cachedDraftImages.images?.length || 0;
+                        const totalExpectedImages = Math.max(
+                            expectedHeadingCount + expectedAdditionalCount,
+                            cachedHeadingCount + cachedAdditionalCount
+                        );
                         
                         console.log('📤 Saving before navigation:', {
-                            expected_heading: expectedHeadingCount,
-                            expected_additional: expectedAdditionalCount,
-                            total: totalExpectedImages
+                            dom_heading: expectedHeadingCount,
+                            dom_additional: expectedAdditionalCount,
+                            cached_heading: cachedHeadingCount,
+                            cached_additional: cachedAdditionalCount,
+                            total_expected: totalExpectedImages,
+                            pending_uploads: pendingImageUploads
                         });
                         
                         // Save and wait for response
