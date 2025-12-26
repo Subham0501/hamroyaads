@@ -3258,7 +3258,9 @@
                                 ctx.drawImage(img, 0, 0, width, height);
                                 
                                 // Determine output format - use JPEG for better compression, PNG only if transparency is needed
+                                // Support both image/jpeg and image/jpg MIME types
                                 const isPng = file.type === 'image/png';
+                                const isJpeg = file.type === 'image/jpeg' || file.type === 'image/jpg';
                                 const outputFormat = isPng ? 'image/png' : 'image/jpeg';
                                 
                                 // Try different quality levels to get under 1MB
@@ -3269,7 +3271,8 @@
                                 const tryCompress = () => {
                                     // Use JPEG for better compression (unless we need transparency)
                                     // For most images, JPEG provides better compression
-                                    compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                                    // Support both JPEG and JPG formats
+                                    compressedDataUrl = canvas.toDataURL(outputFormat, quality);
                                     
                                     // Calculate actual base64 size (more accurate)
                                     const base64Size = (compressedDataUrl.length - compressedDataUrl.indexOf(',') - 1) * 0.75;

@@ -65,8 +65,9 @@ class CustomizedTemplateController extends Controller
                 'heading_images.*' => 'nullable|string',
                 'theme_color' => 'nullable|string|max:7',
                 'bg_color' => 'nullable|string|max:7',
-                'images' => 'nullable|array',
-                'images.memories' => 'nullable|array|max:50',
+                'images' => 'nullable|array|max:50', // Accept flat array or nested structure
+                'images.*' => 'nullable|string', // For flat array format
+                'images.memories' => 'nullable|array|max:50', // For nested format
                 'images.memories.*' => 'nullable|string',
             ]);
             
@@ -137,14 +138,57 @@ class CustomizedTemplateController extends Controller
         }
         
         // Handle additional images uploads (base64 images)
-        if ($request->has('images') && is_array($request->images) && !empty($request->images)) {
+        // Support both flat array format [url1, url2, ...] and nested format { memories: [...] }
+        $imagesInput = $request->input('images');
+        $imagesArray = [];
+        
+        if (is_array($imagesInput)) {
+            // Check if it's a flat array or nested structure
+            if (isset($imagesInput['memories']) && is_array($imagesInput['memories'])) {
+                // Nested format: { memories: [...] }
+                $imagesArray = $imagesInput['memories'];
+            } else {
+                // Flat array format: [url1, url2, ...]
+                // Check if keys are numeric (flat array) or if it's actually a nested structure
+                $hasNumericKeys = count(array_filter(array_keys($imagesInput), 'is_numeric')) === count($imagesInput);
+                if ($hasNumericKeys || empty($imagesInput)) {
+                    $imagesArray = $imagesInput;
+                } else {
+                    // It's a nested structure but not with 'memories' key, extract first array found
+                    foreach ($imagesInput as $key => $value) {
+                        if (is_array($value)) {
+                            $imagesArray = $value;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        \Log::info('Checking for additional images', [
+            'has_images' => $request->has('images'),
+            'images_input_type' => gettype($imagesInput),
+            'images_input_is_array' => is_array($imagesInput),
+            'images_array_count' => count($imagesArray),
+            'images_sample' => count($imagesArray) > 0 ? substr($imagesArray[0], 0, 50) : 'none',
+            'draft_id' => $draftId,
+            'user_id' => Auth::id()
+        ]);
+        
+        if (!empty($imagesArray)) {
             try {
+                \Log::info('Processing additional images', [
+                    'count' => count($imagesArray),
+                    'draft_id' => $draftId,
+                    'user_id' => Auth::id()
+                ]);
+                
                 // Filter out already saved paths (not base64) and remove duplicates
                 $newImages = [];
                 $existingImages = [];
                 $seenUrls = []; // Track URLs to prevent duplicates
                 
-                foreach ($request->images as $image) {
+                foreach ($imagesArray as $image) {
                     if (is_string($image) && Str::startsWith($image, 'data:image')) {
                         // New base64 image - convert to file
                         $newImages[] = $image;
@@ -157,20 +201,37 @@ class CustomizedTemplateController extends Controller
                     }
                 }
                 
+                \Log::info('Additional images filtered', [
+                    'new_base64_count' => count($newImages),
+                    'existing_paths_count' => count($existingImages)
+                ]);
+                
                 // Convert new base64 images to file paths
                 if (!empty($newImages)) {
+                    \Log::info('Converting base64 additional images to files...');
                     $convertedImages = $this->handleBase64Images($newImages, Auth::id(), 'images');
+                    \Log::info('Additional images converted successfully', ['count' => count($convertedImages)]);
                     $validated['images'] = ['memories' => array_merge($existingImages, $convertedImages)];
                 } else {
                     $validated['images'] = ['memories' => $existingImages];
                 }
+                
+                \Log::info('Additional images processed', ['total_count' => count($validated['images']['memories'])]);
             } catch (\Exception $e) {
-                \Log::error('Image upload error: ' . $e->getMessage());
+                \Log::error('Additional image upload error: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
                 // Keep existing images if update fails
                 if (!isset($validated['images'])) {
                     $validated['images'] = [];
                 }
             }
+        } else {
+            \Log::info('No additional images to process', [
+                'has_images' => $request->has('images'),
+                'images_input' => $imagesInput,
+                'images_array_count' => count($imagesArray)
+            ]);
         }
         
         $validated['user_id'] = Auth::id();
@@ -1022,7 +1083,13 @@ class CustomizedTemplateController extends Controller
     {
         // Extract image data
         if (preg_match('/^data:image\/(\w+);base64,/', $base64Image, $matches)) {
-            $extension = $matches[1];
+            $extension = strtolower($matches[1]);
+            
+            // Normalize JPEG extensions (jpeg -> jpg for consistency)
+            if ($extension === 'jpeg') {
+                $extension = 'jpg';
+            }
+            
             $imageData = base64_decode(substr($base64Image, strpos($base64Image, ',') + 1));
             
             if ($imageData === false) {
