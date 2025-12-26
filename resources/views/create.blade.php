@@ -1008,13 +1008,29 @@
                     bg_color: document.getElementById('bg-color')?.value || formData.bgColor || '#0f172a',
                 };
                 
-                // Only include image fields if we have images to send
-                // This allows backend to preserve existing images when frontend doesn't have them loaded yet
+                // ALWAYS include image fields if we have images in DOM or cache
+                // This ensures images are saved even if they were just uploaded
                 if (headingImages.length > 0) {
                     draftData.heading_images = headingImages;
+                    console.log('📤 Including', headingImages.length, 'heading images in save request');
+                } else if (cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) {
+                    // If DOM is empty but cache has images, use cache to preserve them
+                    draftData.heading_images = cachedDraftImages.heading_images;
+                    console.log('📤 Using cached heading images in save request:', cachedDraftImages.heading_images.length);
                 }
+                
                 if (additionalImages.length > 0) {
                     draftData.images = additionalImages;
+                    console.log('📤 Including', additionalImages.length, 'additional images in save request');
+                } else if (cachedDraftImages.images && cachedDraftImages.images.length > 0) {
+                    // If DOM is empty but cache has images, use cache to preserve them
+                    const imagesArray = Array.isArray(cachedDraftImages.images) 
+                        ? cachedDraftImages.images 
+                        : (cachedDraftImages.images.memories || []);
+                    if (imagesArray.length > 0) {
+                        draftData.images = imagesArray;
+                        console.log('📤 Using cached additional images in save request:', imagesArray.length);
+                    }
                 }
                 
                 // Limit base64 images per request to prevent server overload
@@ -1032,8 +1048,23 @@
                     heading_images_count: headingImages.length,
                     additional_images_count: additionalImages.length,
                     base64_count: totalBase64,
-                    has_page_name: !!finalPageName
+                    has_page_name: !!finalPageName,
+                    draftData_heading_images: draftData.heading_images?.length || 0,
+                    draftData_images: draftData.images?.length || 0,
+                    will_send_images: !!(draftData.heading_images || draftData.images),
+                    imagesClearedForNewPage: imagesClearedForNewPage
                 });
+                
+                // CRITICAL: If we have images but they're not in draftData, add them!
+                if ((headingImages.length > 0 || additionalImages.length > 0) && !draftData.heading_images && !draftData.images) {
+                    console.error('❌ CRITICAL: Images exist but not included in draftData! Adding them now...');
+                    if (headingImages.length > 0) {
+                        draftData.heading_images = headingImages;
+                    }
+                    if (additionalImages.length > 0) {
+                        draftData.images = additionalImages;
+                    }
+                }
                 
                 try {
                     // Use fetchWithTimeout to prevent hanging requests
@@ -2767,13 +2798,23 @@
                     // Debounce the check - wait 500ms after user stops typing
                     pageNameChangeTimeout = setTimeout(() => {
                         // Check if page name actually changed (not just editing the same name)
+                        // IMPORTANT: Only clear images if page name actually changed to a DIFFERENT value
+                        // Don't clear if user is just editing the same name
                         if (previousPageName && currentPageName && currentPageName !== previousPageName) {
                             // User changed to a different page name - clear all old images
                             console.log('📝 Page name changed from "' + previousPageName + '" to "' + currentPageName + '" - clearing images');
-                            clearAllImagesForNewPage();
-                            // Reset draft ID since this is a new page
-                            currentDraftId = null;
-                            localStorage.removeItem('draftId');
+                            // Only clear if it's a significant change (not just a typo fix)
+                            // Check if the slug would be different
+                            const prevSlug = previousPageName.toLowerCase().replace(/\s+/g, '-');
+                            const currSlug = currentPageName.toLowerCase().replace(/\s+/g, '-');
+                            if (prevSlug !== currSlug) {
+                                clearAllImagesForNewPage();
+                                // Reset draft ID since this is a new page
+                                currentDraftId = null;
+                                localStorage.removeItem('draftId');
+                            } else {
+                                console.log('📝 Page name changed but slug is same, not clearing images');
+                            }
                             previousPageName = currentPageName;
                             // Reset flag after a short delay to allow new images to be added
                             setTimeout(() => {
