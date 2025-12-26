@@ -1092,7 +1092,7 @@
                             // Force preview update immediately after saving
                             setTimeout(() => {
                                 console.log('🔄 Forcing preview update after save...');
-                                updatePreview();
+                                debouncedUpdatePreview();
                             }, 200);
                         }
                         
@@ -1149,7 +1149,7 @@
                         // Update preview after images are updated
                         // Only update preview if not already loading to prevent loop
                         if (!window.isDraftImagesLoading) {
-                            setTimeout(updatePreview, 300);
+                            setTimeout(debouncedUpdatePreview, 300);
                         }
                     } else {
                         console.error('❌ Failed to save draft:', result);
@@ -1313,7 +1313,7 @@
                     }
                     
                     // Update preview after restoring data
-                    setTimeout(updatePreview, 200);
+                    setTimeout(debouncedUpdatePreview, 200);
                 } catch (e) {
                     console.error('Error restoring form data:', e);
                 }
@@ -1668,10 +1668,10 @@
             if (step !== currentStep) {
                 // Load images first, then update preview
                 loadDraftImages().then(() => {
-                    setTimeout(updatePreview, 200);
+                    setTimeout(debouncedUpdatePreview, 200);
                 }).catch(() => {
                     // If load fails, still try to update preview
-                    setTimeout(updatePreview, 200);
+                    setTimeout(debouncedUpdatePreview, 200);
                 });
             }
             
@@ -2527,7 +2527,7 @@
                 console.log('Page Name:', document.getElementById('page-name')?.value);
                 console.log('Heading:', document.getElementById('heading')?.value);
                 console.log('Preview Content:', document.getElementById('preview-content'));
-                updatePreview();
+                debouncedUpdatePreview();
             };
             
             // Track previous page name to detect when a new page name is entered
@@ -2589,7 +2589,7 @@
                 }
                 
                 // Update preview (this will now show empty preview since cache is cleared)
-                updatePreview();
+                debouncedUpdatePreview();
                 
                 console.log('✅ All images cleared for new page');
             }
@@ -2661,7 +2661,7 @@
                         }
                     }, 500); // Wait 500ms after user stops typing
                     
-                    updatePreview();
+                    debouncedUpdatePreview();
                 });
                 
                 // Also check on blur (when user leaves the field) - immediate check
@@ -3061,7 +3061,7 @@
                             
                             // Update preview immediately
                             setTimeout(() => {
-                                updatePreview();
+                                debouncedUpdatePreview();
                             }, 100);
                             
                             // Save draft after deletion to update database (this will send updated image list without removed image)
@@ -3070,7 +3070,7 @@
                                 console.log('✅ Draft updated after image deletion');
                                 // Update preview again after save
                                 setTimeout(() => {
-                                    updatePreview();
+                                    debouncedUpdatePreview();
                                 }, 200);
                             }, 200);
                         });
@@ -3095,7 +3095,7 @@
                         
                         // Update preview immediately to show uploading state
                         setTimeout(() => {
-                            updatePreview();
+                            debouncedUpdatePreview();
                         }, 100);
                         
                         // Decrement pending counter
@@ -3133,17 +3133,59 @@
             
             // Watch for heading images changes
             if (headingImagesPreview) {
+                let previewUpdateTimeout = null;
                 const observer = new MutationObserver(() => {
                     // Only update preview if not currently loading images from database to prevent loop
                     if (!window.isDraftImagesLoading) {
-                        updatePreview();
+                        // Debounce the updatePreview call to prevent excessive calls
+                        if (previewUpdateTimeout) {
+                            clearTimeout(previewUpdateTimeout);
+                        }
+                        previewUpdateTimeout = setTimeout(() => {
+                            debouncedUpdatePreview();
+                        }, 300); // Wait 300ms after DOM changes stop
                     }
                     // Gallery preview updated
                 });
                 observer.observe(headingImagesPreview, { childList: true });
             }
             
+            // Watch for additional images changes
+            const imagesPreview = document.getElementById('images-preview');
+            if (imagesPreview) {
+                let additionalPreviewUpdateTimeout = null;
+                const additionalObserver = new MutationObserver(() => {
+                    // Only update preview if not currently loading images from database to prevent loop
+                    if (!window.isDraftImagesLoading) {
+                        // Debounce the updatePreview call to prevent excessive calls
+                        if (additionalPreviewUpdateTimeout) {
+                            clearTimeout(additionalPreviewUpdateTimeout);
+                        }
+                        additionalPreviewUpdateTimeout = setTimeout(() => {
+                            debouncedUpdatePreview();
+                        }, 300); // Wait 300ms after DOM changes stop
+                    }
+                });
+                additionalObserver.observe(imagesPreview, { childList: true });
+            }
+            
             // Hero image handlers removed - using heading images carousel instead
+            
+            // Debounced updatePreview function to prevent excessive API calls
+            let updatePreviewTimeout = null;
+            
+            async function debouncedUpdatePreview() {
+                // Clear any existing timeout
+                if (updatePreviewTimeout) {
+                    clearTimeout(updatePreviewTimeout);
+                }
+                
+                // Set a new timeout to call updatePreview after 300ms
+                // This prevents multiple rapid calls
+                updatePreviewTimeout = setTimeout(() => {
+                    debouncedUpdatePreview();
+                }, 300);
+            }
             
             // Load draft images from backend DATABASE
             async function loadDraftImages() {
@@ -3428,7 +3470,7 @@
                                                 console.log('✅ Draft updated after image deletion');
                                             }, 200);
                                             
-                                            updatePreview();
+                                            debouncedUpdatePreview();
                                         });
                                         
                                         // Image number badge
@@ -3455,7 +3497,7 @@
                                     
                                     // Force preview update
                                     setTimeout(() => {
-                                        updatePreview();
+                                        debouncedUpdatePreview();
                                     }, 100);
                                 } else {
                                     console.error('❌ heading-images-preview container not found in DOM!');
@@ -3572,7 +3614,7 @@
                                                 console.log('✅ Draft updated after image deletion');
                                             }, 200);
                                             
-                                            updatePreview();
+                                            debouncedUpdatePreview();
                                         });
                                         
                                         imgContainer.appendChild(img);
@@ -3589,7 +3631,7 @@
                             
                             // Update preview after images are loaded (only once to prevent multiple API calls)
                             setTimeout(() => {
-                                updatePreview();
+                                debouncedUpdatePreview();
                             }, 300);
                         }
                     }
@@ -3683,14 +3725,14 @@
                         // Update preview after images are loaded from database (only if not already loading to prevent loop)
                         if (!window.isDraftImagesLoading) {
                             setTimeout(() => {
-                                updatePreview();
+                                debouncedUpdatePreview();
                             }, 300);
                         }
                     } catch (error) {
                         console.error('❌ Error loading images from database:', error);
                         // Still try to update preview even if load fails
                         setTimeout(() => {
-                            updatePreview();
+                            debouncedUpdatePreview();
                         }, 200);
                     }
                 }, 150);
@@ -3729,7 +3771,7 @@
                             // Only update preview if not already loading to prevent loop
                             if (!window.isDraftImagesLoading) {
                                 setTimeout(() => {
-                                    updatePreview();
+                                    debouncedUpdatePreview();
                                 }, 300);
                             }
                         } catch (error) {
@@ -3737,7 +3779,7 @@
                             // Only update preview if not already loading to prevent loop
                             if (!window.isDraftImagesLoading) {
                                 setTimeout(() => {
-                                    updatePreview();
+                                    debouncedUpdatePreview();
                                 }, 300);
                             }
                         }
@@ -3754,13 +3796,13 @@
                         await loadDraftImages();
                         // Only update preview if not already loading to prevent loop
                         if (!window.isDraftImagesLoading) {
-                            updatePreview();
+                            debouncedUpdatePreview();
                         }
                     } catch (error) {
                         console.error('Error loading images from database on popstate:', error);
                         // Only update preview if not already loading to prevent loop
                         if (!window.isDraftImagesLoading) {
-                            updatePreview();
+                            debouncedUpdatePreview();
                         }
                     }
                 }, 300);
@@ -3901,7 +3943,7 @@
                             
                             // Update preview immediately
                             setTimeout(() => {
-                                updatePreview();
+                                debouncedUpdatePreview();
                             }, 100);
                             
                             // Save draft after deletion to update database
@@ -3910,7 +3952,7 @@
                                 console.log('✅ Draft updated after image deletion');
                                 // Update preview again after save
                                 setTimeout(() => {
-                                    updatePreview();
+                                    debouncedUpdatePreview();
                                 }, 200);
                             }, 200);
                         });
@@ -3922,7 +3964,7 @@
                         
                         // Update preview immediately to show uploading state
                         setTimeout(() => {
-                            updatePreview();
+                            debouncedUpdatePreview();
                         }, 100);
                         
                         // Decrement pending counter
