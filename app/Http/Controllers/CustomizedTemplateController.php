@@ -281,14 +281,88 @@ class CustomizedTemplateController extends Controller
                 
                 if (!empty($validated['page_name'])) {
                     $validated['slug'] = CustomizedTemplate::generateSlug($validated['page_name'], Auth::id(), $validated['template']);
+                    
+                    // Double-check if a draft with this slug already exists (globally unique constraint)
+                    $slugDraft = CustomizedTemplate::where('slug', $validated['slug'])
+                        ->where('status', 'draft')
+                        ->first();
+                    
+                    if ($slugDraft) {
+                        // Update existing draft instead of creating new
+                        \Log::info('Found existing draft by slug, updating instead of creating', [
+                            'existing_id' => $slugDraft->id,
+                            'slug' => $validated['slug']
+                        ]);
+                        
+                        // Merge images if provided
+                        if (isset($validated['heading_images']) && is_array($validated['heading_images']) && count($validated['heading_images']) > 0) {
+                            // Use new images
+                        } elseif ($slugDraft->heading_images) {
+                            $validated['heading_images'] = $slugDraft->heading_images;
+                        }
+                        
+                        if (isset($validated['images']) && is_array($validated['images']) && count($validated['images']) > 0) {
+                            // Use new images
+                        } elseif ($slugDraft->images) {
+                            $validated['images'] = $slugDraft->images;
+                        }
+                        
+                        $slugDraft->update($validated);
+                        $customizedTemplate = $slugDraft;
+                        
+                        \Log::info('Draft updated (found by slug)', [
+                            'template_id' => $customizedTemplate->id,
+                            'heading_images_count' => is_array($validated['heading_images'] ?? null) ? count($validated['heading_images']) : 0,
+                            'images_count' => isset($validated['images']['memories']) ? count($validated['images']['memories']) : 0,
+                        ]);
+                    } else {
+                        // No existing draft with this slug, safe to create
+                        try {
+                            $customizedTemplate = CustomizedTemplate::create($validated);
+                            \Log::info('Draft created (new)', [
+                                'template_id' => $customizedTemplate->id,
+                                'has_images' => $hasImages,
+                                'heading_images_count' => is_array($validated['heading_images'] ?? null) ? count($validated['heading_images']) : 0,
+                                'images_count' => isset($validated['images']['memories']) ? count($validated['images']['memories']) : 0,
+                            ]);
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Handle duplicate slug error - try to find and update existing draft
+                            if ($e->getCode() == 23000 && str_contains($e->getMessage(), 'slug_unique')) {
+                                \Log::warning('Duplicate slug error, attempting to find and update existing draft', ['slug' => $validated['slug']]);
+                                $existingBySlug = CustomizedTemplate::where('slug', $validated['slug'])->first();
+                                if ($existingBySlug) {
+                                    // Merge images
+                                    if (isset($validated['heading_images']) && is_array($validated['heading_images']) && count($validated['heading_images']) > 0) {
+                                        // Use new images
+                                    } elseif ($existingBySlug->heading_images) {
+                                        $validated['heading_images'] = $existingBySlug->heading_images;
+                                    }
+                                    
+                                    if (isset($validated['images']) && is_array($validated['images']) && count($validated['images']) > 0) {
+                                        // Use new images
+                                    } elseif ($existingBySlug->images) {
+                                        $validated['images'] = $existingBySlug->images;
+                                    }
+                                    
+                                    $existingBySlug->update($validated);
+                                    $customizedTemplate = $existingBySlug;
+                                    \Log::info('Draft updated after duplicate slug error', ['template_id' => $customizedTemplate->id]);
+                                } else {
+                                    throw $e; // Re-throw if we can't find the existing draft
+                                }
+                            } else {
+                                throw $e; // Re-throw if it's a different error
+                            }
+                        }
+                    }
+                } else {
+                    // No page_name, create without slug (will be generated in model boot)
+                    $customizedTemplate = CustomizedTemplate::create($validated);
+                    \Log::info('Draft created (new, no page_name)', [
+                        'template_id' => $customizedTemplate->id,
+                        'has_images' => $hasImages,
+                    ]);
                 }
-                $customizedTemplate = CustomizedTemplate::create($validated);
-                \Log::info('Draft created (new)', [
-                    'template_id' => $customizedTemplate->id,
-                    'has_images' => $hasImages,
-                    'heading_images_count' => is_array($validated['heading_images'] ?? null) ? count($validated['heading_images']) : 0,
-                    'images_count' => isset($validated['images']['memories']) ? count($validated['images']['memories']) : 0,
-                ]);
             }
         }
         
