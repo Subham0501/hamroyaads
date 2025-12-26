@@ -1804,20 +1804,21 @@
                         // Save and wait for response
                         await saveDraftToBackend();
                         
-                        // Verify images were actually saved by checking the response
-                        // We need to check the saved draft to confirm images are there
+                        // CRITICAL: Verify ALL images are saved to database before allowing navigation
+                        // This is especially important for step 3 -> step 4
                         const draftId = currentDraftId || localStorage.getItem('draftId');
                         if (draftId && totalExpectedImages > 0) {
-                            console.log('🔍 Verifying images were saved to database...');
-                            showLoading('Verifying...', 'Confirming all images are saved');
+                            console.log('🔍 Verifying ALL images are saved to database before navigation...');
+                            showLoading('Verifying Images...', `Confirming all ${totalExpectedImages} image(s) are saved to the database`);
                             
                             // Fetch the saved draft to verify images are there
                             let verificationAttempts = 0;
-                            const maxVerificationAttempts = 5;
+                            const maxVerificationAttempts = 10; // More attempts for reliability
                             let imagesVerified = false;
+                            let lastSavedCount = 0;
                             
                             while (verificationAttempts < maxVerificationAttempts && !imagesVerified) {
-                                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between attempts
+                                await new Promise(resolve => setTimeout(resolve, 800)); // Wait 800ms between attempts
                                 
                                 try {
                                     const verifyResponse = await fetch(`/api/templates/${draftId}`, {
@@ -1832,30 +1833,30 @@
                                             const savedHeadingCount = verifyResult.data.heading_images?.length || 0;
                                             const savedAdditionalCount = verifyResult.data.images?.memories?.length || 0;
                                             const totalSaved = savedHeadingCount + savedAdditionalCount;
+                                            lastSavedCount = totalSaved;
                                             
-                                            console.log('📊 Verification attempt', verificationAttempts + 1, ':', {
+                                            console.log('📊 Verification attempt', verificationAttempts + 1, '/', maxVerificationAttempts, ':', {
                                                 saved_heading: savedHeadingCount,
                                                 saved_additional: savedAdditionalCount,
                                                 total_saved: totalSaved,
-                                                expected: totalExpectedImages
+                                                expected: totalExpectedImages,
+                                                progress: `${totalSaved}/${totalExpectedImages}`
                                             });
                                             
-                                            // Check if we have at least 80% of expected images (allow some tolerance)
-                                            // Or if we have at least some images saved
-                                            const minRequired = Math.max(1, Math.floor(totalExpectedImages * 0.8));
-                                            if (totalSaved >= minRequired || (totalSaved > 0 && verificationAttempts >= 3)) {
+                                            // CRITICAL: Require ALL images to be saved (100%, not 80%)
+                                            // This ensures no images are lost when navigating
+                                            if (totalSaved >= totalExpectedImages) {
                                                 imagesVerified = true;
-                                                console.log('✅ Images verified in database!', {
+                                                console.log('✅ ALL images verified in database!', {
                                                     saved: totalSaved,
-                                                    expected: totalExpectedImages,
-                                                    min_required: minRequired
+                                                    expected: totalExpectedImages
                                                 });
-                                            } else if (verificationAttempts === maxVerificationAttempts - 1) {
-                                                // Last attempt - if still not verified, save again
-                                                console.log('⚠️ Images not fully saved, attempting final save...');
+                                            } else if (verificationAttempts >= 5 && totalSaved < totalExpectedImages) {
+                                                // After 5 attempts, if still not all saved, try saving again
+                                                console.log('⚠️ Not all images saved yet, attempting another save...');
+                                                showLoading('Re-saving Images...', `Saving remaining images (${totalSaved}/${totalExpectedImages} saved)`);
                                                 await saveDraftToBackend();
-                                                await new Promise(resolve => setTimeout(resolve, 1500));
-                                                imagesVerified = true; // Proceed anyway
+                                                await new Promise(resolve => setTimeout(resolve, 1000));
                                             }
                                         }
                                     }
@@ -1866,9 +1867,25 @@
                                 verificationAttempts++;
                             }
                             
-                            if (!imagesVerified) {
-                                console.warn('⚠️ Could not verify all images, but proceeding...');
+                            // FINAL CHECK: If not all images are saved, BLOCK navigation
+                            if (!imagesVerified || lastSavedCount < totalExpectedImages) {
+                                console.error('❌ BLOCKING NAVIGATION: Not all images are saved!', {
+                                    saved: lastSavedCount,
+                                    expected: totalExpectedImages,
+                                    missing: totalExpectedImages - lastSavedCount
+                                });
+                                hideLoading();
+                                alert(`Cannot proceed: Only ${lastSavedCount} out of ${totalExpectedImages} images are saved. Please wait a moment and try again, or refresh the page.`);
+                                return; // BLOCK navigation
                             }
+                            
+                            console.log('✅ All images confirmed saved, allowing navigation to step 4');
+                        } else if (totalExpectedImages > 0 && !draftId) {
+                            // We have images but no draft ID - this shouldn't happen, but block navigation
+                            console.error('❌ BLOCKING NAVIGATION: Images exist but no draft ID!');
+                            hideLoading();
+                            alert('Error: Images were not saved. Please try again.');
+                            return; // BLOCK navigation
                         } else {
                             // No images to verify, just wait a bit
                             await new Promise(resolve => setTimeout(resolve, 500));
