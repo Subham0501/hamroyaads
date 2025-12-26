@@ -1058,6 +1058,7 @@
                 }
                 
                 if (additionalImages.length > 0) {
+                    // Server expects images in format: { memories: [...] }
                     draftData.images = additionalImages;
                     console.log('📤 Including', additionalImages.length, 'additional images in save request');
                 } else if (cachedDraftImages.images && cachedDraftImages.images.length > 0) {
@@ -1066,8 +1067,20 @@
                         ? cachedDraftImages.images 
                         : (cachedDraftImages.images.memories || []);
                     if (imagesArray.length > 0) {
+                        // Server expects images in format: { memories: [...] } or just array
                         draftData.images = imagesArray;
                         console.log('📤 Using cached additional images in save request:', imagesArray.length);
+                    }
+                }
+                
+                // CRITICAL FIX: Ensure images are sent as array, not object with memories property
+                // The server will convert array to { memories: [...] } format
+                if (draftData.images && !Array.isArray(draftData.images)) {
+                    console.warn('⚠️ Images is not an array, converting...', draftData.images);
+                    if (draftData.images.memories && Array.isArray(draftData.images.memories)) {
+                        draftData.images = draftData.images.memories;
+                    } else {
+                        draftData.images = [];
                     }
                 }
                 
@@ -1098,13 +1111,49 @@
                     console.error('❌ CRITICAL: Images exist but not included in draftData! Adding them now...');
                     if (headingImages.length > 0) {
                         draftData.heading_images = headingImages;
+                        console.log('✅ Added', headingImages.length, 'heading images to draftData');
                     }
                     if (additionalImages.length > 0) {
                         draftData.images = additionalImages;
+                        console.log('✅ Added', additionalImages.length, 'additional images to draftData');
                     }
                 }
                 
+                // FINAL CHECK: Log exactly what will be sent
+                console.log('🔍 FINAL CHECK before sending:', {
+                    heading_images_in_draftData: draftData.heading_images?.length || 0,
+                    images_in_draftData: Array.isArray(draftData.images) ? draftData.images.length : (draftData.images?.memories?.length || 0),
+                    heading_images_collected: headingImages.length,
+                    additional_images_collected: additionalImages.length,
+                    will_send_heading: !!draftData.heading_images,
+                    will_send_images: !!draftData.images
+                });
+                
+                // If we still don't have images in draftData but we collected them, force add
+                if (headingImages.length > 0 && !draftData.heading_images) {
+                    console.error('🚨 EMERGENCY: Forcing heading images into draftData!');
+                    draftData.heading_images = headingImages;
+                }
+                if (additionalImages.length > 0 && !draftData.images) {
+                    console.error('🚨 EMERGENCY: Forcing additional images into draftData!');
+                    draftData.images = additionalImages;
+                }
+                
                 try {
+                    // Log what we're actually sending
+                    const imagesBeingSent = {
+                        heading: draftData.heading_images?.length || 0,
+                        additional: draftData.images?.length || 0,
+                        heading_sample: draftData.heading_images?.[0]?.substring(0, 50) || 'none',
+                        additional_sample: draftData.images?.[0]?.substring(0, 50) || 'none'
+                    };
+                    console.log('📤 ACTUAL PAYLOAD being sent:', {
+                        ...imagesBeingSent,
+                        has_heading_images: !!draftData.heading_images,
+                        has_images: !!draftData.images,
+                        draftData_keys: Object.keys(draftData)
+                    });
+                    
                     // Use fetchWithTimeout to prevent hanging requests
                     const response = await fetchWithTimeout('{{ route("templates.save-draft") }}', {
                         method: 'POST',
@@ -1115,7 +1164,24 @@
                         body: JSON.stringify(draftData)
                     }, FETCH_TIMEOUT);
                     
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('❌ Server error response:', response.status, errorText);
+                        throw new Error(`Server error: ${response.status} - ${errorText}`);
+                    }
+                    
                     const result = await response.json();
+                    
+                    // Log the response
+                    console.log('📥 SERVER RESPONSE:', {
+                        success: result.success,
+                        draft_id: result.draft_id,
+                        has_data: !!result.data,
+                        response_heading_images: result.data?.heading_images?.length || 0,
+                        response_images: result.data?.images?.memories?.length || 0,
+                        full_response: result
+                    });
+                    
                     if (result.success && result.draft_id) {
                         currentDraftId = result.draft_id;
                         localStorage.setItem('draftId', result.draft_id);
