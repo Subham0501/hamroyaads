@@ -1599,41 +1599,83 @@
                     // Ensure images are saved before navigating forward
                     showLoading('Saving Images...', 'Uploading and saving your images to the server');
                     try {
-                        await saveDraftToBackend();
-                        
-                        // Wait a bit longer to ensure server has processed all images
-                        // Check if there are any base64 images still in the DOM that need to be saved
+                        // Count images before save
                         const headingImagesPreview = document.getElementById('heading-images-preview');
                         const imagesPreview = document.getElementById('images-preview');
-                        let hasBase64Images = false;
+                        const expectedHeadingCount = headingImagesPreview ? headingImagesPreview.children.length : 0;
+                        const expectedAdditionalCount = imagesPreview ? imagesPreview.children.length : 0;
+                        const totalExpectedImages = expectedHeadingCount + expectedAdditionalCount;
                         
-                        if (headingImagesPreview) {
-                            Array.from(headingImagesPreview.children).forEach(container => {
-                                const img = container.querySelector('img');
-                                if (img && img.src && img.src.startsWith('data:image')) {
-                                    hasBase64Images = true;
+                        console.log('📤 Saving before navigation:', {
+                            expected_heading: expectedHeadingCount,
+                            expected_additional: expectedAdditionalCount,
+                            total: totalExpectedImages
+                        });
+                        
+                        // Save and wait for response
+                        await saveDraftToBackend();
+                        
+                        // Verify images were actually saved by checking the response
+                        // We need to check the saved draft to confirm images are there
+                        const draftId = currentDraftId || localStorage.getItem('draftId');
+                        if (draftId && totalExpectedImages > 0) {
+                            console.log('🔍 Verifying images were saved to database...');
+                            showLoading('Verifying...', 'Confirming all images are saved');
+                            
+                            // Fetch the saved draft to verify images are there
+                            let verificationAttempts = 0;
+                            const maxVerificationAttempts = 5;
+                            let imagesVerified = false;
+                            
+                            while (verificationAttempts < maxVerificationAttempts && !imagesVerified) {
+                                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between attempts
+                                
+                                try {
+                                    const verifyResponse = await fetch(`/api/templates/${draftId}`, {
+                                        headers: {
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                        }
+                                    });
+                                    
+                                    if (verifyResponse.ok) {
+                                        const verifyResult = await verifyResponse.json();
+                                        if (verifyResult.success && verifyResult.data) {
+                                            const savedHeadingCount = verifyResult.data.heading_images?.length || 0;
+                                            const savedAdditionalCount = verifyResult.data.images?.memories?.length || 0;
+                                            const totalSaved = savedHeadingCount + savedAdditionalCount;
+                                            
+                                            console.log('📊 Verification attempt', verificationAttempts + 1, ':', {
+                                                saved_heading: savedHeadingCount,
+                                                saved_additional: savedAdditionalCount,
+                                                total_saved: totalSaved,
+                                                expected: totalExpectedImages
+                                            });
+                                            
+                                            // Check if we have at least the expected number of images
+                                            if (totalSaved >= totalExpectedImages) {
+                                                imagesVerified = true;
+                                                console.log('✅ Images verified in database!');
+                                            } else if (verificationAttempts === maxVerificationAttempts - 1) {
+                                                // Last attempt - if still not verified, save again
+                                                console.log('⚠️ Images not fully saved, attempting final save...');
+                                                await saveDraftToBackend();
+                                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                                imagesVerified = true; // Proceed anyway
+                                            }
+                                        }
+                                    }
+                                } catch (verifyError) {
+                                    console.error('Error verifying images:', verifyError);
                                 }
-                            });
-                        }
-                        
-                        if (imagesPreview) {
-                            Array.from(imagesPreview.children).forEach(container => {
-                                const img = container.querySelector('img');
-                                if (img && img.src && img.src.startsWith('data:image')) {
-                                    hasBase64Images = true;
-                                }
-                            });
-                        }
-                        
-                        // If there are still base64 images, save again to ensure they're uploaded
-                        if (hasBase64Images) {
-                            console.log('⚠️ Still have base64 images, saving again before navigation...');
-                            showLoading('Finalizing Image Upload...', 'Ensuring all images are saved to the server');
-                            await saveDraftToBackend();
-                            // Wait a bit more for server processing
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                                
+                                verificationAttempts++;
+                            }
+                            
+                            if (!imagesVerified) {
+                                console.warn('⚠️ Could not verify all images, but proceeding...');
+                            }
                         } else {
-                            // Even if no base64, wait a bit to ensure server has saved everything
+                            // No images to verify, just wait a bit
                             await new Promise(resolve => setTimeout(resolve, 500));
                         }
                         
