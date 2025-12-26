@@ -1119,9 +1119,12 @@
                                     // If container is empty but we have images in database, restore them
                                     console.log('⚠️ Container is empty but database has', result.data.heading_images.length, 'images. Restoring...');
                                     // Trigger loadDraftImages to restore images
-                                    setTimeout(() => {
-                                        loadDraftImages();
-                                    }, 100);
+                                    // Only proceed if not already loading to prevent recursion
+                                    if (!window.isDraftImagesLoading) {
+                                        setTimeout(() => {
+                                            loadDraftImages();
+                                        }, 100);
+                                    }
                                 }
                             }
                         }
@@ -1144,7 +1147,10 @@
                         }
                         
                         // Update preview after images are updated
-                        setTimeout(updatePreview, 300);
+                        // Only update preview if not already loading to prevent loop
+                        if (!window.isDraftImagesLoading) {
+                            setTimeout(updatePreview, 300);
+                        }
                     } else {
                         console.error('❌ Failed to save draft:', result);
                     }
@@ -3705,6 +3711,7 @@
             
             // Watch for step changes via URL
             let lastStep = currentStep;
+            // Reduce frequency from 100ms to 500ms to reduce excessive API calls
             setInterval(() => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const currentUrlStep = parseInt(urlParams.get('step') || '1');
@@ -3736,7 +3743,7 @@
                         }
                     }, 200);
                 }
-            }, 100);
+            }, 500);
             
             // Also listen for popstate (back/forward navigation)
             window.addEventListener('popstate', function() {
