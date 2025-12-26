@@ -1776,13 +1776,17 @@
             const logoUrl = "{{ asset('assets/logo.png') }}";
             
             async function updatePreview() {
-                // Only load from database if not cleared for new page
-                if (!imagesClearedForNewPage) {
+                // Only load from database if not cleared for new page and not already loading
+                if (!imagesClearedForNewPage && !window.isDraftImagesLoading) {
                     const draftId = currentDraftId || localStorage.getItem('draftId');
                     if (draftId && (!cachedDraftImages.heading_images || cachedDraftImages.heading_images.length === 0)) {
                         console.log('📥 Cache empty in updatePreview, fetching from DATABASE...');
+                        window.isDraftImagesLoading = true; // Set loading flag to prevent loop
                         await loadDraftImages();
+                        window.isDraftImagesLoading = false; // Reset loading flag
                     }
+                } else if (window.isDraftImagesLoading) {
+                    console.log('⏭️ Skipping database load - already loading images');
                 } else {
                     console.log('⏭️ Skipping database load - images cleared for new page');
                 }
@@ -3098,7 +3102,10 @@
             // Watch for heading images changes
             if (headingImagesPreview) {
                 const observer = new MutationObserver(() => {
-                    updatePreview();
+                    // Only update preview if not currently loading images from database to prevent loop
+                    if (!window.isDraftImagesLoading) {
+                        updatePreview();
+                    }
                     // Gallery preview updated
                 });
                 observer.observe(headingImagesPreview, { childList: true });
@@ -3548,15 +3555,10 @@
                                 console.log('⚠️ No additional images to restore or invalid format:', imagesMemories);
                             }
                             
-                            // Update preview after images are loaded
+                            // Update preview after images are loaded (only once to prevent multiple API calls)
                             setTimeout(() => {
                                 updatePreview();
-                            }, 500);
-                            
-                            // Also update preview after a longer delay to ensure it's visible
-                            setTimeout(() => {
-                                updatePreview();
-                            }, 1000);
+                            }, 300);
                         }
                     }
                 } catch (error) {
@@ -3633,7 +3635,12 @@
                             if (headingImagesPreview && headingImagesPreview.children.length === 0) {
                                 console.log('🔄 Images in cache but not in DOM, restoring...');
                                 // Trigger restoration by calling loadDraftImages again (it will restore to DOM)
-                                await loadDraftImages();
+                                // Only proceed if not already loading to prevent recursion
+                                if (!window.isDraftImagesLoading) {
+                                    window.isDraftImagesLoading = true;
+                                    await loadDraftImages();
+                                    window.isDraftImagesLoading = false;
+                                }
                             } else if (!headingImagesPreview) {
                                 console.error('❌ heading-images-preview container not found!');
                             }
@@ -3641,10 +3648,12 @@
                             console.log('⚠️ No images in cache to restore');
                         }
                         
-                        // Update preview after images are loaded from database
-                        setTimeout(() => {
-                            updatePreview();
-                        }, 300);
+                        // Update preview after images are loaded from database (only if not already loading to prevent loop)
+                        if (!window.isDraftImagesLoading) {
+                            setTimeout(() => {
+                                updatePreview();
+                            }, 300);
+                        }
                     } catch (error) {
                         console.error('❌ Error loading images from database:', error);
                         // Still try to update preview even if load fails
@@ -3684,14 +3693,20 @@
                             console.log('🔄 Step changed to', currentUrlStep, ', loading images from DATABASE...');
                             await loadDraftImages();
                             console.log('✅ Images loaded from DATABASE after step change');
-                            setTimeout(() => {
-                                updatePreview();
-                            }, 300);
+                            // Only update preview if not already loading to prevent loop
+                            if (!window.isDraftImagesLoading) {
+                                setTimeout(() => {
+                                    updatePreview();
+                                }, 300);
+                            }
                         } catch (error) {
                             console.error('❌ Error loading images from database on step change:', error);
-                            setTimeout(() => {
-                                updatePreview();
-                            }, 300);
+                            // Only update preview if not already loading to prevent loop
+                            if (!window.isDraftImagesLoading) {
+                                setTimeout(() => {
+                                    updatePreview();
+                                }, 300);
+                            }
                         }
                     }, 200);
                 }
@@ -3704,10 +3719,16 @@
                     // Always fetch images from database
                     try {
                         await loadDraftImages();
-                        updatePreview();
+                        // Only update preview if not already loading to prevent loop
+                        if (!window.isDraftImagesLoading) {
+                            updatePreview();
+                        }
                     } catch (error) {
                         console.error('Error loading images from database on popstate:', error);
-                        updatePreview();
+                        // Only update preview if not already loading to prevent loop
+                        if (!window.isDraftImagesLoading) {
+                            updatePreview();
+                        }
                     }
                 }, 300);
             });
@@ -4166,6 +4187,12 @@
                     localStorage.setItem('theme', 'dark');
                 }
                 
+                return false;
+            };
+        }
+    </script>
+</body>
+</html>
                 return false;
             };
         }
