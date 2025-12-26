@@ -1054,6 +1054,16 @@
                         localStorage.setItem('draftId', result.draft_id);
                         console.log('✅ Draft saved to DATABASE, ID:', result.draft_id);
                         
+                        // Verify images were saved
+                        const savedHeadingCount = result.data?.heading_images?.length || 0;
+                        const savedAdditionalCount = result.data?.images?.memories?.length || 0;
+                        console.log('📸 Images saved to database:', {
+                            heading_images: savedHeadingCount,
+                            additional_images: savedAdditionalCount,
+                            heading_urls: result.data?.heading_images || [],
+                            additional_urls: result.data?.images?.memories || []
+                        });
+                        
                         // Update cached images
                         if (result.data) {
                             const previousHeadingImages = cachedDraftImages.heading_images || [];
@@ -1590,6 +1600,44 @@
                     showLoading('Saving Images...', 'Uploading and saving your images to the server');
                     try {
                         await saveDraftToBackend();
+                        
+                        // Wait a bit longer to ensure server has processed all images
+                        // Check if there are any base64 images still in the DOM that need to be saved
+                        const headingImagesPreview = document.getElementById('heading-images-preview');
+                        const imagesPreview = document.getElementById('images-preview');
+                        let hasBase64Images = false;
+                        
+                        if (headingImagesPreview) {
+                            Array.from(headingImagesPreview.children).forEach(container => {
+                                const img = container.querySelector('img');
+                                if (img && img.src && img.src.startsWith('data:image')) {
+                                    hasBase64Images = true;
+                                }
+                            });
+                        }
+                        
+                        if (imagesPreview) {
+                            Array.from(imagesPreview.children).forEach(container => {
+                                const img = container.querySelector('img');
+                                if (img && img.src && img.src.startsWith('data:image')) {
+                                    hasBase64Images = true;
+                                }
+                            });
+                        }
+                        
+                        // If there are still base64 images, save again to ensure they're uploaded
+                        if (hasBase64Images) {
+                            console.log('⚠️ Still have base64 images, saving again before navigation...');
+                            showLoading('Finalizing Image Upload...', 'Ensuring all images are saved to the server');
+                            await saveDraftToBackend();
+                            // Wait a bit more for server processing
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        } else {
+                            // Even if no base64, wait a bit to ensure server has saved everything
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                        
+                        console.log('✅ All images saved, proceeding to next step');
                     } catch (error) {
                         console.error('Error saving draft before navigation:', error);
                         hideLoading();
