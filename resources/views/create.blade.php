@@ -577,7 +577,7 @@
                             </svg>
                             Previous
                         </button>
-                        <button id="next-btn" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ff6b6b] to-[#ff5252] text-white rounded-xl hover:shadow-lg transition-all relative">
+                        <button type="button" id="next-btn" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ff6b6b] to-[#ff5252] text-white rounded-xl hover:shadow-lg transition-all relative">
                             <span id="next-btn-text">Next</span>
                             <span id="next-btn-spinner" class="hidden">
                                 <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1332,14 +1332,21 @@
             }
             
             // Navigation with data saving
-            document.getElementById('next-btn')?.addEventListener('click', async function() {
-                const nextBtn = document.getElementById('next-btn');
-                const nextBtnText = document.getElementById('next-btn-text');
-                const nextBtnSpinner = document.getElementById('next-btn-spinner');
-                const nextBtnArrow = document.getElementById('next-btn-arrow');
-                const loadingOverlay = document.getElementById('step-loading-overlay');
-                const loadingTitle = document.getElementById('loading-title');
-                const loadingMessage = document.getElementById('loading-message');
+            const nextBtnElement = document.getElementById('next-btn');
+            if (nextBtnElement) {
+                nextBtnElement.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('Next button clicked, current step:', currentStep);
+                    
+                    const nextBtn = document.getElementById('next-btn');
+                    const nextBtnText = document.getElementById('next-btn-text');
+                    const nextBtnSpinner = document.getElementById('next-btn-spinner');
+                    const nextBtnArrow = document.getElementById('next-btn-arrow');
+                    const loadingOverlay = document.getElementById('step-loading-overlay');
+                    const loadingTitle = document.getElementById('loading-title');
+                    const loadingMessage = document.getElementById('loading-message');
                 
                 // Show loading state
                 function showLoading(title, message) {
@@ -1405,6 +1412,10 @@
                                 })
                             });
                             
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            
                             const result = await response.json();
                             
                             if (!result.available) {
@@ -1449,7 +1460,8 @@
                         } catch (error) {
                             console.error('Error checking page name:', error);
                             hideLoading();
-                            // Continue if check fails (don't block user)
+                            // Continue if check fails (don't block user, but log the error)
+                            console.warn('Page name validation failed, but continuing anyway');
                         }
                     }
                     
@@ -1549,6 +1561,29 @@
                     // Show loading while saving
                     showLoading('Saving Progress...', 'Saving your data and images');
                     
+                    // Check if there are pending image uploads
+                    if (pendingImageUploads > 0) {
+                        showLoading('Uploading Images...', `Please wait, ${pendingImageUploads} image(s) still uploading. This may take a moment...`);
+                        
+                        // Wait for all pending uploads to complete, with a timeout to prevent indefinite waiting
+                        let timeoutCounter = 0;
+                        const maxTimeout = 30; // 30 * 500ms = 15 seconds max wait
+                        
+                        while (pendingImageUploads > 0 && timeoutCounter < maxTimeout) {
+                            console.log('⏳ Waiting for', pendingImageUploads, 'image(s) to finish uploading... (', timeoutCounter + 1, '/', maxTimeout, ')');
+                            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before checking again
+                            timeoutCounter++;
+                        }
+                        
+                        if (pendingImageUploads > 0) {
+                            console.warn('⚠️ Timeout waiting for image uploads to complete. Proceeding anyway...');
+                            // Reset the counter to prevent blocking navigation
+                            pendingImageUploads = 0;
+                        } else {
+                            console.log('✅ All images uploaded, proceeding...');
+                        }
+                    }
+                    
                     saveFormData(); // Save before navigating
                     
                     // Ensure images are saved before navigating forward
@@ -1577,7 +1612,10 @@
                     hideLoading();
                     alert('An error occurred. Please try again.');
                 }
-            });
+                });
+            } else {
+                console.error('Next button element not found!');
+            }
             
             document.getElementById('prev-btn')?.addEventListener('click', async function() {
                 const prevBtn = document.getElementById('prev-btn');
@@ -1614,13 +1652,23 @@
                     if (pendingImageUploads > 0) {
                         showLoading('Uploading Images...', `Please wait, ${pendingImageUploads} image(s) still uploading. This may take a moment...`);
                         
-                        // Wait for all pending uploads to complete
-                        while (pendingImageUploads > 0) {
-                            console.log('⏳ Waiting for', pendingImageUploads, 'image(s) to finish uploading...');
+                        // Wait for all pending uploads to complete, with a timeout to prevent indefinite waiting
+                        let timeoutCounter = 0;
+                        const maxTimeout = 30; // 30 * 500ms = 15 seconds max wait
+                        
+                        while (pendingImageUploads > 0 && timeoutCounter < maxTimeout) {
+                            console.log('⏳ Waiting for', pendingImageUploads, 'image(s) to finish uploading... (', timeoutCounter + 1, '/', maxTimeout, ')');
                             await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before checking again
+                            timeoutCounter++;
                         }
                         
-                        console.log('✅ All images uploaded, proceeding...');
+                        if (pendingImageUploads > 0) {
+                            console.warn('⚠️ Timeout waiting for image uploads to complete. Proceeding anyway...');
+                            // Reset the counter to prevent blocking navigation
+                            pendingImageUploads = 0;
+                        } else {
+                            console.log('✅ All images uploaded, proceeding...');
+                        }
                     }
                     
                     showLoading('Saving Progress...', 'Saving your data before going back');
@@ -3183,7 +3231,7 @@
                 // Set a new timeout to call updatePreview after 300ms
                 // This prevents multiple rapid calls
                 updatePreviewTimeout = setTimeout(() => {
-                    debouncedUpdatePreview();
+                    updatePreview();
                 }, 300);
             }
             
@@ -3810,7 +3858,7 @@
             
             const imagesUpload = document.getElementById('images-upload');
             const imagesInput = document.getElementById('images');
-            const imagesPreview = document.getElementById('images-preview');
+            // imagesPreview already declared at line 3202, reusing it here
             
             if (imagesUpload && imagesInput) {
                 imagesUpload.addEventListener('click', () => imagesInput.click());
