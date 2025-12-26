@@ -2037,7 +2037,9 @@
                 }
                 
                 // If no images in DOM, fall back to database cache (but only if not cleared for new page)
+                // This is important for steps where DOM containers don't exist (like step 4)
                 if (headingImages.length === 0 && !imagesClearedForNewPage && cachedDraftImages.heading_images && cachedDraftImages.heading_images.length > 0) {
+                    console.log('📥 Using cached heading images for preview (DOM empty):', cachedDraftImages.heading_images.length);
                     headingImages = cachedDraftImages.heading_images.map(path => {
                         if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
                             return path;
@@ -2053,7 +2055,13 @@
                 }
                 
                 if (additionalImages.length === 0 && !imagesClearedForNewPage && cachedDraftImages.images && cachedDraftImages.images.length > 0) {
-                    additionalImages = cachedDraftImages.images.map(path => {
+                    console.log('📥 Using cached additional images for preview (DOM empty):', cachedDraftImages.images.length);
+                    // Handle both array format and object with memories property
+                    const imagesArray = Array.isArray(cachedDraftImages.images) 
+                        ? cachedDraftImages.images 
+                        : (cachedDraftImages.images.memories || []);
+                    
+                    additionalImages = imagesArray.map(path => {
                         if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
                             return path;
                         }
@@ -3864,11 +3872,13 @@
                             console.log('⚠️ No images in cache to restore');
                         }
                         
-                        // Update preview after images are loaded from database (only if not already loading to prevent loop)
+                        // Force update preview after images are loaded from database
+                        // This ensures preview shows images even when DOM containers don't exist (like on step 4)
                         if (!window.isDraftImagesLoading) {
+                            console.log('🔄 Forcing preview update after loading images from database...');
                             setTimeout(() => {
-                                debouncedUpdatePreview();
-                            }, 300);
+                                updatePreview(); // Call directly, not debounced, to ensure it runs
+                            }, 500);
                         }
                     } catch (error) {
                         console.error('❌ Error loading images from database:', error);
@@ -3910,11 +3920,12 @@
                             console.log('🔄 Step changed to', currentUrlStep, ', loading images from DATABASE...');
                             await loadDraftImages();
                             console.log('✅ Images loaded from DATABASE after step change');
-                            // Only update preview if not already loading to prevent loop
+                            // Force update preview after loading images (especially important for step 4 where DOM containers don't exist)
                             if (!window.isDraftImagesLoading) {
+                                console.log('🔄 Forcing preview update after step change...');
                                 setTimeout(() => {
-                                    debouncedUpdatePreview();
-                                }, 300);
+                                    updatePreview(); // Call directly to ensure it runs
+                                }, 500);
                             }
                         } catch (error) {
                             console.error('❌ Error loading images from database on step change:', error);
